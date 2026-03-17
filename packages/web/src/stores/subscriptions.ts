@@ -1,41 +1,24 @@
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
-import { logsApi, sourcesApi, subApi, type LogRecord, type Source, type SubInfo } from '../api';
+import { sourcesApi, subApi, type Source, type SubInfo } from '../api';
 
-export const useAppStore = defineStore('app', () => {
+export const useSubscriptionsStore = defineStore('subscriptions', () => {
   const sources = ref<Source[]>([]);
   const subInfo = ref<SubInfo | null>(null);
-  const logs = ref<LogRecord[]>([]);
   const lastSaveTime = ref('');
   const loading = ref(false);
   const saving = ref(false);
   const refreshing = ref(false);
-  const darkMode = ref(localStorage.getItem('darkMode') === 'true');
 
   const subFormats = computed(() => subInfo.value?.formats ?? []);
 
-  function applyTheme() {
-    document.documentElement.classList.toggle('dark', darkMode.value);
-  }
-
-  function toggleDarkMode() {
-    darkMode.value = !darkMode.value;
-    localStorage.setItem('darkMode', String(darkMode.value));
-    applyTheme();
-  }
-
-  async function loadAll() {
+  async function loadPageData() {
     loading.value = true;
     try {
-      const [sourceData, subData, logData] = await Promise.all([
-        sourcesApi.getAll(),
-        subApi.getInfo(),
-        logsApi.getRecent(50)
-      ]);
+      const [sourceData, subData] = await Promise.all([sourcesApi.getAll(), subApi.getInfo()]);
       sources.value = sourceData.sources;
       lastSaveTime.value = sourceData.lastSaveTime;
       subInfo.value = subData;
-      logs.value = logData.logs;
     } finally {
       loading.value = false;
     }
@@ -44,15 +27,10 @@ export const useAppStore = defineStore('app', () => {
   async function refreshAggregation() {
     refreshing.value = true;
     try {
-      const [sourceData, subData, logData] = await Promise.all([
-        sourcesApi.refresh(),
-        subApi.getInfo(),
-        logsApi.getRecent(50)
-      ]);
+      const [sourceData, subData] = await Promise.all([sourcesApi.refresh(), subApi.getInfo()]);
       sources.value = sourceData.sources;
       lastSaveTime.value = sourceData.lastSaveTime;
       subInfo.value = subData;
-      logs.value = logData.logs;
     } finally {
       refreshing.value = false;
     }
@@ -105,20 +83,15 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
-  applyTheme();
-
   return {
     sources,
     subInfo,
     subFormats,
-    logs,
     lastSaveTime,
     loading,
     saving,
     refreshing,
-    darkMode,
-    toggleDarkMode,
-    loadAll,
+    loadPageData,
     refreshAggregation,
     createSource,
     updateSource,

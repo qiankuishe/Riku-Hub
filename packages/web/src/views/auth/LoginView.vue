@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { authApi } from '../api';
+import { authApi } from '../../api';
 
 const router = useRouter();
 const username = ref('');
@@ -20,7 +20,7 @@ async function handleLogin() {
   errorMessage.value = '';
   try {
     await authApi.login(username.value.trim(), password.value);
-    await router.push('/');
+    await router.push('/app/nav');
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '登录失败';
   } finally {
@@ -37,7 +37,7 @@ async function handleLogin() {
         <div>
           <p class="eyebrow">Cloudflare Edition</p>
           <h1>QianKui 聚合</h1>
-          <p class="subtitle">订阅聚合、协议转换与安全缓存后台</p>
+          <p class="subtitle">订阅聚合、导航扩展与统一后台入口</p>
         </div>
       </div>
 
