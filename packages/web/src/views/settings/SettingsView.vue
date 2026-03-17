@@ -31,14 +31,14 @@ const currentOrigin = computed(() => window.location.origin);
 
         <article class="setting-card">
           <span>后台结构</span>
-          <strong>主侧边栏 + 模块页面</strong>
-          <p>当前已经为后续导航、通知、工具页扩展预留了固定壳子。</p>
+          <strong>6 个一级页面</strong>
+          <p>网站导航、订阅聚合、笔记、片段库、运行日志和系统设置已经统一到同一套后台里。</p>
         </article>
 
         <article class="setting-card">
-          <span>下一阶段</span>
-          <strong>迁入真实导航功能</strong>
-          <p>后续拉取你的现有导航项目时，可直接映射到网站导航模块内。</p>
+          <span>当前能力</span>
+          <strong>导航 + 笔记 + 片段库</strong>
+          <p>新模块已接入 Worker + KV 架构，后面可以继续往这套壳子里加更多功能。</p>
         </article>
       </div>
     </section>

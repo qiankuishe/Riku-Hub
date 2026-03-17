@@ -134,4 +134,85 @@ describe('worker behaviors', () => {
     const listData = (await listResponse.json()) as { sources: Array<{ id: string }> };
     expect(listData.sources.map((source) => source.id)).toEqual([secondData.source.id, firstData.source.id]);
   });
+
+  it('seeds navigation categories and links', async () => {
+    const cookie = await login(env);
+    const response = await app.request(
+      'https://example.com/api/navigation',
+      {
+        headers: { cookie }
+      },
+      env
+    );
+
+    const data = (await response.json()) as { categories: Array<{ name: string; links: Array<{ title: string }> }> };
+    expect(response.status).toBe(200);
+    expect(data.categories.length).toBeGreaterThan(0);
+    expect(data.categories[0].links.length).toBeGreaterThan(0);
+  });
+
+  it('creates and updates notes', async () => {
+    const cookie = await login(env);
+
+    const createResponse = await app.request(
+      'https://example.com/api/notes',
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          cookie
+        },
+        body: JSON.stringify({ title: '测试笔记', content: '# hello' })
+      },
+      env
+    );
+    const createData = (await createResponse.json()) as { note: { id: string; title: string } };
+    expect(createResponse.status).toBe(200);
+
+    const updateResponse = await app.request(
+      `https://example.com/api/notes/${createData.note.id}`,
+      {
+        method: 'PUT',
+        headers: {
+          'content-type': 'application/json',
+          cookie
+        },
+        body: JSON.stringify({ isPinned: true })
+      },
+      env
+    );
+
+    const updateData = (await updateResponse.json()) as { note: { isPinned: boolean } };
+    expect(updateData.note.isPinned).toBe(true);
+  });
+
+  it('creates and filters snippets', async () => {
+    const cookie = await login(env);
+
+    await app.request(
+      'https://example.com/api/snippets',
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          cookie
+        },
+        body: JSON.stringify({ type: 'code', title: 'Deploy', content: 'wrangler deploy' })
+      },
+      env
+    );
+
+    const response = await app.request(
+      'https://example.com/api/snippets?type=code&q=deploy',
+      {
+        headers: { cookie }
+      },
+      env
+    );
+
+    const data = (await response.json()) as { snippets: Array<{ title: string; type: string }> };
+    expect(response.status).toBe(200);
+    expect(data.snippets).toHaveLength(1);
+    expect(data.snippets[0].type).toBe('code');
+  });
 });

@@ -40,6 +40,26 @@ const routes: RouteRecordRaw[] = [
         }
       },
       {
+        path: 'notes',
+        name: 'notes',
+        component: () => import('../views/notes/NotesView.vue'),
+        meta: {
+          requiresAuth: true,
+          title: '笔记',
+          subtitle: '双栏笔记本，支持自动保存、Markdown 预览和置顶管理。'
+        }
+      },
+      {
+        path: 'snippets',
+        name: 'snippets',
+        component: () => import('../views/snippets/SnippetsView.vue'),
+        meta: {
+          requiresAuth: true,
+          title: '片段库',
+          subtitle: '沉淀文本、代码、链接和小图片片段，快速复制与检索。'
+        }
+      },
+      {
         path: 'logs',
         name: 'logs',
         component: () => import('../views/logs/LogsView.vue'),

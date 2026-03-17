@@ -2,13 +2,10 @@
 defineProps<{
   title: string;
   subtitle: string;
-  darkMode: boolean;
 }>();
 
 const emit = defineEmits<{
   menu: [];
-  toggleTheme: [];
-  logout: [];
 }>();
 </script>
 
@@ -20,13 +17,6 @@ const emit = defineEmits<{
         <h1>{{ title }}</h1>
         <p class="subtitle">{{ subtitle }}</p>
       </div>
-    </div>
-
-    <div class="topbar-actions">
-      <button class="ghost" @click="emit('toggleTheme')">
-        {{ darkMode ? '浅色模式' : '深色模式' }}
-      </button>
-      <button class="ghost" @click="emit('logout')">退出登录</button>
     </div>
   </header>
 </template>

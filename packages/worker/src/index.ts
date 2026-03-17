@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { NAVIGATION_SEED } from './navigation-seed';
 import {
   detectFormatFromUserAgent,
   detectInputFormat,
@@ -40,11 +41,56 @@ interface LoginAttemptState {
   lockLevel: number;
 }
 
+interface NavigationCategoryRecord {
+  id: string;
+  name: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface NavigationLinkRecord {
+  id: string;
+  categoryId: string;
+  title: string;
+  url: string;
+  description: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface NavigationCategoryPayload extends NavigationCategoryRecord {
+  links: NavigationLinkRecord[];
+}
+
+interface NoteRecord {
+  id: string;
+  title: string;
+  content: string;
+  isPinned: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+type SnippetType = 'text' | 'code' | 'link' | 'image';
+
+interface SnippetRecord {
+  id: string;
+  type: SnippetType;
+  title: string;
+  content: string;
+  isPinned: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 const app = new Hono<Bindings>();
 
 const SESSION_TTL_SECONDS = 24 * 60 * 60;
 const RESET_AFTER_MS = 24 * 60 * 60 * 1000;
 const MAX_REDIRECTS = 3;
+const MAX_IMAGE_SNIPPET_BYTES = 350 * 1024;
 const LOCK_LEVELS = [
   { attempts: 10, durationMs: 5 * 60 * 1000 },
   { attempts: 8, durationMs: 15 * 60 * 1000 },
@@ -55,8 +101,12 @@ const LOCK_LEVELS = [
 const APP_KEYS = {
   subToken: 'config:sub-token',
   aggregateMeta: 'config:aggregate-meta',
+  navigationSeeded: 'config:navigation-seeded',
   sourceIndex: 'source:index',
-  logsRecent: 'logs:recent'
+  logsRecent: 'logs:recent',
+  navCategoryIndex: 'nav:category:index',
+  noteIndex: 'note:index',
+  snippetIndex: 'snippet:index'
 };
 
 const CACHE_KEYS = {
@@ -295,6 +345,262 @@ app.get('/api/logs', async (c) => {
   const limit = Number.parseInt(c.req.query('limit') || '50', 10);
   const logs = await getLogs(c.env);
   return c.json({ logs: logs.slice(0, limit) });
+});
+
+app.get('/api/navigation', async (c) => {
+  const categories = await getNavigationTree(c.env);
+  return c.json({
+    categories,
+    totalCategories: categories.length,
+    totalLinks: categories.reduce((sum, category) => sum + category.links.length, 0)
+  });
+});
+
+app.post('/api/navigation/categories', async (c) => {
+  const body = await readJson<{ name?: string }>(c.req.raw);
+  const name = body.name?.trim();
+  if (!name) {
+    return c.json({ error: '分类名称不能为空' }, 400);
+  }
+
+  const category = await createNavigationCategory(c.env, name);
+  await appendLog(c.env, 'nav_category_create', `创建导航分类: ${category.name}`);
+  return c.json({ category });
+});
+
+app.put('/api/navigation/categories/reorder', async (c) => {
+  const body = await readJson<{ ids?: string[] }>(c.req.raw);
+  const ids = body.ids ?? [];
+  const categories = await getNavigationCategories(c.env);
+  const idSet = new Set(categories.map((category) => category.id));
+  if (ids.length !== categories.length || ids.some((id) => !idSet.has(id))) {
+    return c.json({ error: '分类排序数据无效' }, 400);
+  }
+
+  const reordered = await reorderNavigationCategories(c.env, ids);
+  return c.json({ categories: reordered });
+});
+
+app.put('/api/navigation/categories/:id', async (c) => {
+  const body = await readJson<{ name?: string }>(c.req.raw);
+  const category = await getNavigationCategory(c.env, c.req.param('id'));
+  if (!category) {
+    return c.json({ error: '分类不存在' }, 404);
+  }
+
+  const name = body.name?.trim();
+  if (!name) {
+    return c.json({ error: '分类名称不能为空' }, 400);
+  }
+
+  const updated = await saveNavigationCategory(c.env, {
+    ...category,
+    name,
+    updatedAt: new Date().toISOString()
+  });
+  return c.json({ category: updated });
+});
+
+app.delete('/api/navigation/categories/:id', async (c) => {
+  const category = await getNavigationCategory(c.env, c.req.param('id'));
+  if (!category) {
+    return c.json({ error: '分类不存在' }, 404);
+  }
+
+  await deleteNavigationCategory(c.env, category.id);
+  await appendLog(c.env, 'nav_category_delete', `删除导航分类: ${category.name}`);
+  return c.json({ success: true });
+});
+
+app.post('/api/navigation/links', async (c) => {
+  const body = await readJson<{ categoryId?: string; title?: string; url?: string; description?: string }>(c.req.raw);
+  const title = body.title?.trim();
+  const url = body.url?.trim();
+  const categoryId = body.categoryId?.trim();
+
+  if (!categoryId || !title || !url) {
+    return c.json({ error: '分类、标题和链接不能为空' }, 400);
+  }
+
+  if (!isSafeNavigationUrl(url)) {
+    return c.json({ error: '站点链接必须是 http 或 https 地址' }, 400);
+  }
+
+  const category = await getNavigationCategory(c.env, categoryId);
+  if (!category) {
+    return c.json({ error: '分类不存在' }, 404);
+  }
+
+  const link = await createNavigationLink(c.env, {
+    categoryId,
+    title,
+    url,
+    description: body.description?.trim() ?? ''
+  });
+  await appendLog(c.env, 'nav_link_create', `创建导航站点: ${link.title}`);
+  return c.json({ link });
+});
+
+app.put('/api/navigation/links/reorder', async (c) => {
+  const body = await readJson<{ categoryId?: string; ids?: string[] }>(c.req.raw);
+  const categoryId = body.categoryId?.trim();
+  const ids = body.ids ?? [];
+  if (!categoryId) {
+    return c.json({ error: '缺少分类标识' }, 400);
+  }
+
+  const category = await getNavigationCategory(c.env, categoryId);
+  if (!category) {
+    return c.json({ error: '分类不存在' }, 404);
+  }
+
+  const links = await getNavigationLinksByCategory(c.env, categoryId);
+  const idSet = new Set(links.map((link) => link.id));
+  if (ids.length !== links.length || ids.some((id) => !idSet.has(id))) {
+    return c.json({ error: '站点排序数据无效' }, 400);
+  }
+
+  const reordered = await reorderNavigationLinks(c.env, categoryId, ids);
+  return c.json({ links: reordered });
+});
+
+app.put('/api/navigation/links/:id', async (c) => {
+  const body = await readJson<{ categoryId?: string; title?: string; url?: string; description?: string }>(c.req.raw);
+  const link = await getNavigationLink(c.env, c.req.param('id'));
+  if (!link) {
+    return c.json({ error: '站点不存在' }, 404);
+  }
+
+  const nextCategoryId = body.categoryId?.trim() ?? link.categoryId;
+  if (!(await getNavigationCategory(c.env, nextCategoryId))) {
+    return c.json({ error: '目标分类不存在' }, 404);
+  }
+
+  const nextUrl = body.url?.trim() ?? link.url;
+  if (!isSafeNavigationUrl(nextUrl)) {
+    return c.json({ error: '站点链接必须是 http 或 https 地址' }, 400);
+  }
+
+  const updated = await updateNavigationLink(c.env, link, {
+    categoryId: nextCategoryId,
+    title: body.title?.trim() ?? link.title,
+    url: nextUrl,
+    description: body.description?.trim() ?? link.description
+  });
+  return c.json({ link: updated });
+});
+
+app.delete('/api/navigation/links/:id', async (c) => {
+  const link = await getNavigationLink(c.env, c.req.param('id'));
+  if (!link) {
+    return c.json({ error: '站点不存在' }, 404);
+  }
+
+  await deleteNavigationLink(c.env, link.id, link.categoryId);
+  await appendLog(c.env, 'nav_link_delete', `删除导航站点: ${link.title}`);
+  return c.json({ success: true });
+});
+
+app.get('/api/notes', async (c) => {
+  const notes = await getAllNotes(c.env);
+  return c.json({ notes });
+});
+
+app.post('/api/notes', async (c) => {
+  const body = await readJson<{ title?: string; content?: string }>(c.req.raw);
+  const note = await createNoteRecord(c.env, body.title?.trim() || '新笔记', body.content ?? '');
+  return c.json({ note });
+});
+
+app.put('/api/notes/:id', async (c) => {
+  const body = await readJson<{ title?: string; content?: string; isPinned?: boolean }>(c.req.raw);
+  const note = await getNoteRecord(c.env, c.req.param('id'));
+  if (!note) {
+    return c.json({ error: '笔记不存在' }, 404);
+  }
+
+  const updated = await saveNoteRecord(c.env, {
+    ...note,
+    title: body.title?.trim() || note.title,
+    content: typeof body.content === 'string' ? body.content : note.content,
+    isPinned: typeof body.isPinned === 'boolean' ? body.isPinned : note.isPinned,
+    updatedAt: new Date().toISOString()
+  });
+  return c.json({ note: updated });
+});
+
+app.delete('/api/notes/:id', async (c) => {
+  const note = await getNoteRecord(c.env, c.req.param('id'));
+  if (!note) {
+    return c.json({ error: '笔记不存在' }, 404);
+  }
+
+  await deleteNoteRecord(c.env, note.id);
+  return c.json({ success: true });
+});
+
+app.get('/api/snippets', async (c) => {
+  const type = c.req.query('type');
+  const query = c.req.query('q');
+  const snippets = await getAllSnippets(c.env, {
+    type: isSnippetType(type) ? type : undefined,
+    query: query?.trim()
+  });
+  return c.json({ snippets });
+});
+
+app.post('/api/snippets', async (c) => {
+  const body = await readJson<{ type?: string; title?: string; content?: string }>(c.req.raw);
+  if (!isSnippetType(body.type)) {
+    return c.json({ error: '片段类型无效' }, 400);
+  }
+
+  const title = body.title?.trim() || getDefaultSnippetTitle(body.type);
+  const content = body.content ?? '';
+  if (body.type === 'image' && getByteLength(content) > MAX_IMAGE_SNIPPET_BYTES) {
+    return c.json({ error: '图片片段过大，请使用更小的图片或压缩后再试' }, 400);
+  }
+
+  const snippet = await createSnippetRecord(c.env, {
+    type: body.type,
+    title,
+    content
+  });
+  return c.json({ snippet });
+});
+
+app.put('/api/snippets/:id', async (c) => {
+  const body = await readJson<{ type?: string; title?: string; content?: string; isPinned?: boolean }>(c.req.raw);
+  const snippet = await getSnippetRecord(c.env, c.req.param('id'));
+  if (!snippet) {
+    return c.json({ error: '片段不存在' }, 404);
+  }
+
+  const nextType = isSnippetType(body.type) ? body.type : snippet.type;
+  const nextContent = typeof body.content === 'string' ? body.content : snippet.content;
+  if (nextType === 'image' && getByteLength(nextContent) > MAX_IMAGE_SNIPPET_BYTES) {
+    return c.json({ error: '图片片段过大，请使用更小的图片或压缩后再试' }, 400);
+  }
+
+  const updated = await saveSnippetRecord(c.env, {
+    ...snippet,
+    type: nextType,
+    title: body.title?.trim() || snippet.title,
+    content: nextContent,
+    isPinned: typeof body.isPinned === 'boolean' ? body.isPinned : snippet.isPinned,
+    updatedAt: new Date().toISOString()
+  });
+  return c.json({ snippet: updated });
+});
+
+app.delete('/api/snippets/:id', async (c) => {
+  const snippet = await getSnippetRecord(c.env, c.req.param('id'));
+  if (!snippet) {
+    return c.json({ error: '片段不存在' }, 404);
+  }
+
+  await deleteSnippetRecord(c.env, snippet.id);
+  return c.json({ success: true });
 });
 
 app.get('/sub', async (c) => {
@@ -862,6 +1168,366 @@ async function getLogs(env: Env): Promise<LogRecord[]> {
   return (await env.APP_KV.get(APP_KEYS.logsRecent, 'json')) ?? [];
 }
 
+async function ensureNavigationSeeded(env: Env): Promise<void> {
+  const seeded = await env.APP_KV.get(APP_KEYS.navigationSeeded);
+  if (seeded) {
+    return;
+  }
+
+  const existingIds = await getNavigationCategoryIndex(env);
+  if (existingIds.length > 0) {
+    await env.APP_KV.put(APP_KEYS.navigationSeeded, '1');
+    return;
+  }
+
+  const categoryIds: string[] = [];
+  for (const [categoryIndex, categorySeed] of NAVIGATION_SEED.entries()) {
+    const categoryId = randomToken(8);
+    categoryIds.push(categoryId);
+    const categoryNow = new Date().toISOString();
+    const category: NavigationCategoryRecord = {
+      id: categoryId,
+      name: categorySeed.name,
+      sortOrder: categoryIndex,
+      createdAt: categoryNow,
+      updatedAt: categoryNow
+    };
+    await saveNavigationCategory(env, category);
+
+    const linkIds: string[] = [];
+    for (const [linkIndex, linkSeed] of categorySeed.links.entries()) {
+      const linkId = randomToken(8);
+      linkIds.push(linkId);
+      const linkNow = new Date().toISOString();
+      await saveNavigationLink(env, {
+        id: linkId,
+        categoryId,
+        title: linkSeed.title,
+        url: linkSeed.url,
+        description: linkSeed.description,
+        sortOrder: linkIndex,
+        createdAt: linkNow,
+        updatedAt: linkNow
+      });
+    }
+
+    await saveNavigationLinkIndex(env, categoryId, linkIds);
+  }
+
+  await saveNavigationCategoryIndex(env, categoryIds);
+  await env.APP_KV.put(APP_KEYS.navigationSeeded, '1');
+}
+
+async function getNavigationTree(env: Env): Promise<NavigationCategoryPayload[]> {
+  await ensureNavigationSeeded(env);
+  const categories = await getNavigationCategories(env);
+  return Promise.all(
+    categories.map(async (category) => ({
+      ...category,
+      links: await getNavigationLinksByCategory(env, category.id)
+    }))
+  );
+}
+
+async function getNavigationCategory(env: Env, id: string): Promise<NavigationCategoryRecord | null> {
+  const category = await env.APP_KV.get(`nav:category:${id}`, 'json');
+  return category as NavigationCategoryRecord | null;
+}
+
+async function getNavigationCategories(env: Env): Promise<NavigationCategoryRecord[]> {
+  await ensureNavigationSeeded(env);
+  const ids = await getNavigationCategoryIndex(env);
+  const categories = await Promise.all(ids.map((id) => getNavigationCategory(env, id)));
+  return categories.filter((category): category is NavigationCategoryRecord => Boolean(category)).sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+async function getNavigationCategoryIndex(env: Env): Promise<string[]> {
+  return (await env.APP_KV.get(APP_KEYS.navCategoryIndex, 'json')) ?? [];
+}
+
+async function saveNavigationCategoryIndex(env: Env, ids: string[]): Promise<void> {
+  await env.APP_KV.put(APP_KEYS.navCategoryIndex, JSON.stringify(ids));
+}
+
+async function saveNavigationCategory(env: Env, category: NavigationCategoryRecord): Promise<NavigationCategoryRecord> {
+  await env.APP_KV.put(`nav:category:${category.id}`, JSON.stringify(category));
+  return category;
+}
+
+async function createNavigationCategory(env: Env, name: string): Promise<NavigationCategoryRecord> {
+  await ensureNavigationSeeded(env);
+  const ids = await getNavigationCategoryIndex(env);
+  const now = new Date().toISOString();
+  const category: NavigationCategoryRecord = {
+    id: randomToken(8),
+    name,
+    sortOrder: ids.length,
+    createdAt: now,
+    updatedAt: now
+  };
+  await saveNavigationCategory(env, category);
+  await saveNavigationCategoryIndex(env, [...ids, category.id]);
+  await saveNavigationLinkIndex(env, category.id, []);
+  return category;
+}
+
+async function reorderNavigationCategories(env: Env, ids: string[]): Promise<NavigationCategoryRecord[]> {
+  await saveNavigationCategoryIndex(env, ids);
+  const now = new Date().toISOString();
+  const categories = await Promise.all(
+    ids.map(async (id, index) => {
+      const category = await getNavigationCategory(env, id);
+      if (!category) {
+        return null;
+      }
+      return saveNavigationCategory(env, {
+        ...category,
+        sortOrder: index,
+        updatedAt: now
+      });
+    })
+  );
+  return categories.filter((category): category is NavigationCategoryRecord => Boolean(category));
+}
+
+async function deleteNavigationCategory(env: Env, categoryId: string): Promise<void> {
+  const linkIds = await getNavigationLinkIndex(env, categoryId);
+  await Promise.all(linkIds.map((id) => env.APP_KV.delete(`nav:link:${id}`)));
+  await env.APP_KV.delete(`nav:link:index:${categoryId}`);
+  await env.APP_KV.delete(`nav:category:${categoryId}`);
+
+  const nextIds = (await getNavigationCategoryIndex(env)).filter((id) => id !== categoryId);
+  await reorderNavigationCategories(env, nextIds);
+}
+
+async function getNavigationLink(env: Env, id: string): Promise<NavigationLinkRecord | null> {
+  const link = await env.APP_KV.get(`nav:link:${id}`, 'json');
+  return link as NavigationLinkRecord | null;
+}
+
+async function getNavigationLinkIndex(env: Env, categoryId: string): Promise<string[]> {
+  return (await env.APP_KV.get(`nav:link:index:${categoryId}`, 'json')) ?? [];
+}
+
+async function saveNavigationLinkIndex(env: Env, categoryId: string, ids: string[]): Promise<void> {
+  await env.APP_KV.put(`nav:link:index:${categoryId}`, JSON.stringify(ids));
+}
+
+async function saveNavigationLink(env: Env, link: NavigationLinkRecord): Promise<NavigationLinkRecord> {
+  await env.APP_KV.put(`nav:link:${link.id}`, JSON.stringify(link));
+  return link;
+}
+
+async function getNavigationLinksByCategory(env: Env, categoryId: string): Promise<NavigationLinkRecord[]> {
+  const ids = await getNavigationLinkIndex(env, categoryId);
+  const links = await Promise.all(ids.map((id) => getNavigationLink(env, id)));
+  return links.filter((link): link is NavigationLinkRecord => Boolean(link)).sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+async function createNavigationLink(
+  env: Env,
+  payload: Pick<NavigationLinkRecord, 'categoryId' | 'title' | 'url' | 'description'>
+): Promise<NavigationLinkRecord> {
+  const ids = await getNavigationLinkIndex(env, payload.categoryId);
+  const now = new Date().toISOString();
+  const link: NavigationLinkRecord = {
+    id: randomToken(8),
+    categoryId: payload.categoryId,
+    title: payload.title,
+    url: payload.url,
+    description: payload.description,
+    sortOrder: ids.length,
+    createdAt: now,
+    updatedAt: now
+  };
+  await saveNavigationLink(env, link);
+  await saveNavigationLinkIndex(env, payload.categoryId, [...ids, link.id]);
+  return link;
+}
+
+async function reorderNavigationLinks(env: Env, categoryId: string, ids: string[]): Promise<NavigationLinkRecord[]> {
+  await saveNavigationLinkIndex(env, categoryId, ids);
+  const now = new Date().toISOString();
+  const links = await Promise.all(
+    ids.map(async (id, index) => {
+      const link = await getNavigationLink(env, id);
+      if (!link) {
+        return null;
+      }
+      return saveNavigationLink(env, {
+        ...link,
+        categoryId,
+        sortOrder: index,
+        updatedAt: now
+      });
+    })
+  );
+  return links.filter((link): link is NavigationLinkRecord => Boolean(link));
+}
+
+async function updateNavigationLink(
+  env: Env,
+  link: NavigationLinkRecord,
+  payload: Pick<NavigationLinkRecord, 'categoryId' | 'title' | 'url' | 'description'>
+): Promise<NavigationLinkRecord> {
+  const now = new Date().toISOString();
+  if (payload.categoryId === link.categoryId) {
+    const updated = await saveNavigationLink(env, {
+      ...link,
+      title: payload.title,
+      url: payload.url,
+      description: payload.description,
+      updatedAt: now
+    });
+    return updated;
+  }
+
+  const sourceIds = (await getNavigationLinkIndex(env, link.categoryId)).filter((id) => id !== link.id);
+  await reorderNavigationLinks(env, link.categoryId, sourceIds);
+
+  const targetIds = await getNavigationLinkIndex(env, payload.categoryId);
+  const updated: NavigationLinkRecord = {
+    ...link,
+    categoryId: payload.categoryId,
+    title: payload.title,
+    url: payload.url,
+    description: payload.description,
+    sortOrder: targetIds.length,
+    updatedAt: now
+  };
+  await saveNavigationLink(env, updated);
+  await saveNavigationLinkIndex(env, payload.categoryId, [...targetIds, updated.id]);
+  return updated;
+}
+
+async function deleteNavigationLink(env: Env, linkId: string, categoryId: string): Promise<void> {
+  await env.APP_KV.delete(`nav:link:${linkId}`);
+  const nextIds = (await getNavigationLinkIndex(env, categoryId)).filter((id) => id !== linkId);
+  await reorderNavigationLinks(env, categoryId, nextIds);
+}
+
+async function getNoteIndex(env: Env): Promise<string[]> {
+  return (await env.APP_KV.get(APP_KEYS.noteIndex, 'json')) ?? [];
+}
+
+async function saveNoteIndex(env: Env, ids: string[]): Promise<void> {
+  await env.APP_KV.put(APP_KEYS.noteIndex, JSON.stringify(ids));
+}
+
+async function getNoteRecord(env: Env, id: string): Promise<NoteRecord | null> {
+  const note = await env.APP_KV.get(`note:${id}`, 'json');
+  return note as NoteRecord | null;
+}
+
+async function saveNoteRecord(env: Env, note: NoteRecord): Promise<NoteRecord> {
+  await env.APP_KV.put(`note:${note.id}`, JSON.stringify(note));
+  return note;
+}
+
+async function createNoteRecord(env: Env, title: string, content: string): Promise<NoteRecord> {
+  const ids = await getNoteIndex(env);
+  const now = new Date().toISOString();
+  const note: NoteRecord = {
+    id: randomToken(8),
+    title,
+    content,
+    isPinned: false,
+    createdAt: now,
+    updatedAt: now
+  };
+  await saveNoteRecord(env, note);
+  await saveNoteIndex(env, [...ids, note.id]);
+  return note;
+}
+
+async function deleteNoteRecord(env: Env, id: string): Promise<void> {
+  const ids = await getNoteIndex(env);
+  await env.APP_KV.delete(`note:${id}`);
+  await saveNoteIndex(
+    env,
+    ids.filter((value) => value !== id)
+  );
+}
+
+async function getAllNotes(env: Env): Promise<NoteRecord[]> {
+  const ids = await getNoteIndex(env);
+  const notes = await Promise.all(ids.map((id) => getNoteRecord(env, id)));
+  return notes
+    .filter((note): note is NoteRecord => Boolean(note))
+    .sort((a, b) => Number(b.isPinned) - Number(a.isPinned) || b.updatedAt.localeCompare(a.updatedAt));
+}
+
+async function getSnippetIndex(env: Env): Promise<string[]> {
+  return (await env.APP_KV.get(APP_KEYS.snippetIndex, 'json')) ?? [];
+}
+
+async function saveSnippetIndex(env: Env, ids: string[]): Promise<void> {
+  await env.APP_KV.put(APP_KEYS.snippetIndex, JSON.stringify(ids));
+}
+
+async function getSnippetRecord(env: Env, id: string): Promise<SnippetRecord | null> {
+  const snippet = await env.APP_KV.get(`snippet:${id}`, 'json');
+  return snippet as SnippetRecord | null;
+}
+
+async function saveSnippetRecord(env: Env, snippet: SnippetRecord): Promise<SnippetRecord> {
+  await env.APP_KV.put(`snippet:${snippet.id}`, JSON.stringify(snippet));
+  return snippet;
+}
+
+async function createSnippetRecord(
+  env: Env,
+  payload: Pick<SnippetRecord, 'type' | 'title' | 'content'>
+): Promise<SnippetRecord> {
+  const ids = await getSnippetIndex(env);
+  const now = new Date().toISOString();
+  const snippet: SnippetRecord = {
+    id: randomToken(8),
+    type: payload.type,
+    title: payload.title,
+    content: payload.content,
+    isPinned: false,
+    createdAt: now,
+    updatedAt: now
+  };
+  await saveSnippetRecord(env, snippet);
+  await saveSnippetIndex(env, [...ids, snippet.id]);
+  return snippet;
+}
+
+async function deleteSnippetRecord(env: Env, id: string): Promise<void> {
+  const ids = await getSnippetIndex(env);
+  await env.APP_KV.delete(`snippet:${id}`);
+  await saveSnippetIndex(
+    env,
+    ids.filter((value) => value !== id)
+  );
+}
+
+async function getAllSnippets(
+  env: Env,
+  options?: {
+    type?: SnippetType;
+    query?: string;
+  }
+): Promise<SnippetRecord[]> {
+  const ids = await getSnippetIndex(env);
+  const snippets = (await Promise.all(ids.map((id) => getSnippetRecord(env, id))))
+    .filter((snippet): snippet is SnippetRecord => Boolean(snippet))
+    .sort((a, b) => Number(b.isPinned) - Number(a.isPinned) || b.updatedAt.localeCompare(a.updatedAt));
+
+  return snippets.filter((snippet) => {
+    if (options?.type && snippet.type !== options.type) {
+      return false;
+    }
+    if (options?.query) {
+      const needle = options.query.toLowerCase();
+      return snippet.title.toLowerCase().includes(needle) || snippet.content.toLowerCase().includes(needle);
+    }
+    return true;
+  });
+}
+
 function getMaxLogEntries(env: Env): number {
   return Number.parseInt(env.MAX_LOG_ENTRIES ?? '200', 10);
 }
@@ -903,6 +1569,33 @@ async function readJson<T>(request: Request): Promise<T> {
   } catch {
     return {} as T;
   }
+}
+
+function isSafeNavigationUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function isSnippetType(value: string | null | undefined): value is SnippetType {
+  return value === 'text' || value === 'code' || value === 'link' || value === 'image';
+}
+
+function getDefaultSnippetTitle(type: SnippetType): string {
+  const map: Record<SnippetType, string> = {
+    text: '文本片段',
+    code: '代码片段',
+    link: '链接片段',
+    image: '图片片段'
+  };
+  return map[type];
+}
+
+function getByteLength(value: string): number {
+  return new TextEncoder().encode(value).byteLength;
 }
 
 function serializeCookie(

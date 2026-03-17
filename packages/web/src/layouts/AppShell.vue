@@ -36,23 +36,22 @@ async function logout() {
       </div>
     </transition>
 
-    <MainSidebar class="desktop-only" />
+    <MainSidebar class="desktop-only" :dark-mode="uiStore.darkMode" @toggle-theme="uiStore.toggleDarkMode" @logout="logout" />
 
     <div class="app-shell-main">
-      <AppTopbar
-        :title="title"
-        :subtitle="subtitle"
-        :dark-mode="uiStore.darkMode"
-        @menu="uiStore.openMobileNav"
-        @toggle-theme="uiStore.toggleDarkMode"
-        @logout="logout"
-      />
+      <AppTopbar :title="title" :subtitle="subtitle" @menu="uiStore.openMobileNav" />
 
       <main class="page-content">
         <router-view />
       </main>
     </div>
 
-    <MobileNavDrawer :open="uiStore.mobileNavOpen" @close="uiStore.closeMobileNav" />
+    <MobileNavDrawer
+      :open="uiStore.mobileNavOpen"
+      :dark-mode="uiStore.darkMode"
+      @close="uiStore.closeMobileNav"
+      @toggle-theme="uiStore.toggleDarkMode"
+      @logout="logout"
+    />
   </div>
 </template>

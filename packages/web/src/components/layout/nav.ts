@@ -16,6 +16,16 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     caption: '核心功能'
   },
   {
+    label: '笔记',
+    to: '/app/notes',
+    caption: '双栏笔记本'
+  },
+  {
+    label: '片段库',
+    to: '/app/snippets',
+    caption: '长期资料库'
+  },
+  {
     label: '运行日志',
     to: '/app/logs',
     caption: '状态追踪'
