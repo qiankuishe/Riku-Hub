@@ -140,6 +140,28 @@ function shortenUrl(url: string, maxLength = 54) {
   return `${url.slice(0, maxLength)}...`;
 }
 
+function formatDateTime(value: string | undefined, fallback = '尚未刷新') {
+  if (!value) {
+    return fallback;
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).format(date);
+}
+
 async function logout() {
   await authApi.logout().catch(() => undefined);
   await router.push('/login');
@@ -191,7 +213,7 @@ async function refreshLogs() {
           </div>
           <div class="metric-card">
             <span>最近刷新</span>
-            <strong>{{ store.subInfo?.lastRefreshTime || '尚未刷新' }}</strong>
+            <strong>{{ formatDateTime(store.subInfo?.lastRefreshTime, '尚未刷新') }}</strong>
           </div>
           <div class="metric-card">
             <span>Warning</span>
@@ -199,7 +221,7 @@ async function refreshLogs() {
           </div>
           <div class="metric-card">
             <span>最近保存</span>
-            <strong>{{ store.lastSaveTime || '尚未保存' }}</strong>
+            <strong>{{ formatDateTime(store.lastSaveTime, '尚未保存') }}</strong>
           </div>
         </div>
 
@@ -238,7 +260,7 @@ async function refreshLogs() {
           <article v-for="source in store.sources" :key="source.id" class="source-card">
             <div class="source-main">
               <h3>{{ source.name }}</h3>
-              <p>{{ source.nodeCount }} 条节点 · 更新于 {{ source.updatedAt }}</p>
+              <p>{{ source.nodeCount }} 条节点 · 更新于 {{ formatDateTime(source.updatedAt) }}</p>
             </div>
             <div class="source-actions">
               <button class="ghost small" @click="moveSource(source, -1)">上移</button>
@@ -264,7 +286,7 @@ async function refreshLogs() {
           <article v-for="log in store.logs" :key="log.id" class="log-item">
             <div class="log-head">
               <strong>{{ log.action }}</strong>
-              <span>{{ log.createdAt }}</span>
+              <span>{{ formatDateTime(log.createdAt) }}</span>
             </div>
             <p>{{ log.detail || '无详情' }}</p>
           </article>
