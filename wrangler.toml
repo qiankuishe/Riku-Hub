@@ -13,13 +13,13 @@ MAX_LOG_ENTRIES = "200"
 
 [[kv_namespaces]]
 binding = "APP_KV"
-id = "replace-with-app-kv-id"
-preview_id = "replace-with-app-kv-preview-id"
+id = "ebe4ea790cdb40f2b8fd6c438700e889"
+preview_id = "ebe4ea790cdb40f2b8fd6c438700e889"
 
 [[kv_namespaces]]
 binding = "CACHE_KV"
-id = "replace-with-cache-kv-id"
-preview_id = "replace-with-cache-kv-preview-id"
+id = "ebe4ea790cdb40f2b8fd6c438700e889"
+preview_id = "ebe4ea790cdb40f2b8fd6c438700e889"
 
 [triggers]
 crons = ["0 * * * *"]
