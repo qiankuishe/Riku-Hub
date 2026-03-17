@@ -372,6 +372,7 @@ p {
   background: var(--bg-panel-strong);
   border-radius: 20px;
   padding: 12px 13px;
+  overflow: hidden;
 }
 
 .link-item,
@@ -513,12 +514,19 @@ p {
     flex-direction: column;
   }
 
+  .link-item > div:first-child,
+  .source-card > div:first-child {
+    width: 100%;
+    min-width: 0;
+  }
+
   .link-actions,
   .source-actions {
     width: 100%;
   }
 
   .link-item p {
+    display: block;
     width: 100%;
   }
 }
