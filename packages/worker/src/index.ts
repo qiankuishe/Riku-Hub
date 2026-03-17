@@ -194,6 +194,30 @@ app.post('/api/sources', async (c) => {
   return c.json({ source, lastSaveTime: source.updatedAt });
 });
 
+app.put('/api/sources/reorder', async (c) => {
+  const body = await readJson<{ ids?: string[] }>(c.req.raw);
+  const ids = body.ids ?? [];
+  const sources = await getAllSources(c.env);
+  const idSet = new Set(sources.map((source) => source.id));
+  if (ids.some((id: string) => !idSet.has(id)) || ids.length !== sources.length) {
+    return c.json({ error: '排序数据无效' }, 400);
+  }
+
+  await saveSourceIndex(c.env, ids);
+  const now = new Date().toISOString();
+  await Promise.all(
+    sources.map((source) =>
+      saveSource(c.env, {
+        ...source,
+        sortOrder: ids.indexOf(source.id),
+        updatedAt: now
+      })
+    )
+  );
+  await appendLog(c.env, 'source_reorder', '更新订阅源排序');
+  return c.json({ success: true, lastSaveTime: now });
+});
+
 app.put('/api/sources/:id', async (c) => {
   const id = c.req.param('id');
   const body = await readJson<{ name?: string; content?: string }>(c.req.raw);
@@ -228,30 +252,6 @@ app.delete('/api/sources/:id', async (c) => {
   await deleteSource(c.env, id);
   await appendLog(c.env, 'source_delete', `删除订阅源: ${source.name}`);
   return c.json({ success: true, lastSaveTime: new Date().toISOString() });
-});
-
-app.put('/api/sources/reorder', async (c) => {
-  const body = await readJson<{ ids?: string[] }>(c.req.raw);
-  const ids = body.ids ?? [];
-  const sources = await getAllSources(c.env);
-  const idSet = new Set(sources.map((source) => source.id));
-  if (ids.some((id: string) => !idSet.has(id)) || ids.length !== sources.length) {
-    return c.json({ error: '排序数据无效' }, 400);
-  }
-
-  await saveSourceIndex(c.env, ids);
-  const now = new Date().toISOString();
-  await Promise.all(
-    sources.map((source, index) =>
-      saveSource(c.env, {
-        ...source,
-        sortOrder: ids.indexOf(source.id),
-        updatedAt: now
-      })
-    )
-  );
-  await appendLog(c.env, 'source_reorder', '更新订阅源排序');
-  return c.json({ success: true, lastSaveTime: now });
 });
 
 app.post('/api/sources/refresh', async (c) => {

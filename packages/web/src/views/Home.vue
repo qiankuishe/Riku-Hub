@@ -119,7 +119,13 @@ async function moveSource(source: Source, direction: -1 | 1) {
   }
   const [item] = list.splice(index, 1);
   list.splice(targetIndex, 0, item);
-  await store.reorderSources(list.map((entry) => entry.id));
+  try {
+    await store.reorderSources(list.map((entry) => entry.id));
+    showToast(direction < 0 ? '订阅源已上移' : '订阅源已下移');
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '排序失败';
+    showToast('排序失败');
+  }
 }
 
 async function copyLink(url: string) {
@@ -182,14 +188,27 @@ function showToast(message: string) {
   }, 1800);
 }
 
+function isFirstSource(source: Source) {
+  return store.sources[0]?.id === source.id;
+}
+
+function isLastSource(source: Source) {
+  return store.sources.at(-1)?.id === source.id;
+}
+
 async function confirmDelete() {
   if (!deleteTarget.value) {
     return;
   }
-  await store.deleteSource(deleteTarget.value.id);
-  await store.loadAll();
-  deleteTarget.value = null;
-  showToast('订阅源已删除');
+  try {
+    await store.deleteSource(deleteTarget.value.id);
+    await store.loadAll();
+    deleteTarget.value = null;
+    showToast('订阅源已删除');
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '删除失败';
+    showToast('删除失败');
+  }
 }
 </script>
 
@@ -289,10 +308,10 @@ async function confirmDelete() {
               <p>{{ source.nodeCount }} 条节点 · 更新于 {{ formatDateTime(source.updatedAt) }}</p>
             </div>
             <div class="source-actions">
-              <button class="ghost small" @click="moveSource(source, -1)">上移</button>
-              <button class="ghost small" @click="moveSource(source, 1)">下移</button>
+              <button class="ghost small" @click="moveSource(source, -1)" :disabled="store.saving || isFirstSource(source)">上移</button>
+              <button class="ghost small" @click="moveSource(source, 1)" :disabled="store.saving || isLastSource(source)">下移</button>
               <button class="ghost small" @click="openEditDialog(source)">编辑</button>
-              <button class="ghost danger small" @click="removeSource(source)">删除</button>
+              <button class="ghost danger small" @click="removeSource(source)" :disabled="store.saving">删除</button>
             </div>
           </article>
         </div>
@@ -321,38 +340,41 @@ async function confirmDelete() {
     </main>
 
     <div v-if="dialogVisible" class="modal-backdrop" @click.self="dialogVisible = false">
-      <div class="modal-card">
+      <div class="modal-card editor-card">
         <div class="section-head">
           <div>
             <h2>{{ dialogTitle }}</h2>
             <p class="section-subtitle">支持混合输入订阅链接与单条节点 URI。</p>
           </div>
-          <button class="ghost small" @click="dialogVisible = false">关闭</button>
         </div>
 
-        <label class="field">
-          <span>备注名称</span>
-          <input v-model="formName" placeholder="例如：机场主订阅" />
-        </label>
+        <div class="source-editor-layout">
+          <div class="validation-box validation-panel">
+            <template v-if="validating">正在校验输入...</template>
+            <template v-else-if="validation">
+              <strong>校验结果</strong>
+              <p>订阅链接 {{ validation.urlCount }} 个，原始节点 {{ validation.totalCount }} 条，去重后 {{ validation.nodeCount }} 条。</p>
+              <p v-if="validation.duplicateCount > 0">发现重复节点 {{ validation.duplicateCount }} 条。</p>
+              <ul v-if="validation.warnings.length">
+                <li v-for="item in validation.warnings.slice(0, 5)" :key="`${item.code}-${item.message}`">
+                  {{ item.message }}
+                </li>
+              </ul>
+            </template>
+            <template v-else>输入后会自动执行校验。</template>
+          </div>
 
-        <label class="field">
-          <span>订阅内容</span>
-          <textarea v-model="formContent" rows="10" placeholder="粘贴订阅链接、节点 URI 或混合输入"></textarea>
-        </label>
+          <div class="editor-form">
+            <label class="field">
+              <span>备注名称</span>
+              <input v-model="formName" placeholder="例如：机场主订阅" />
+            </label>
 
-        <div class="validation-box">
-          <template v-if="validating">正在校验输入...</template>
-          <template v-else-if="validation">
-            <strong>校验结果</strong>
-            <p>订阅链接 {{ validation.urlCount }} 个，原始节点 {{ validation.totalCount }} 条，去重后 {{ validation.nodeCount }} 条。</p>
-            <p v-if="validation.duplicateCount > 0">发现重复节点 {{ validation.duplicateCount }} 条。</p>
-            <ul v-if="validation.warnings.length">
-              <li v-for="item in validation.warnings.slice(0, 5)" :key="`${item.code}-${item.message}`">
-                {{ item.message }}
-              </li>
-            </ul>
-          </template>
-          <template v-else>输入后会自动执行校验。</template>
+            <label class="field">
+              <span>订阅内容</span>
+              <textarea v-model="formContent" rows="12" placeholder="粘贴订阅链接、节点 URI 或混合输入"></textarea>
+            </label>
+          </div>
         </div>
 
         <p v-if="errorMessage" class="error-banner">{{ errorMessage }}</p>
@@ -386,12 +408,13 @@ async function confirmDelete() {
             <h2>确认删除</h2>
             <p class="section-subtitle">删除后需要重新添加订阅源才能恢复。</p>
           </div>
-          <button class="ghost small" @click="deleteTarget = null">关闭</button>
         </div>
         <p class="confirm-text">确定删除「{{ deleteTarget.name }}」吗？</p>
         <div class="dialog-actions">
-          <button class="ghost" @click="deleteTarget = null">取消</button>
-          <button class="primary danger-fill" @click="confirmDelete">删除</button>
+          <button class="ghost" @click="deleteTarget = null" :disabled="store.saving">取消</button>
+          <button class="primary danger-fill" @click="confirmDelete" :disabled="store.saving">
+            {{ store.saving ? '删除中...' : '删除' }}
+          </button>
         </div>
       </div>
     </div>

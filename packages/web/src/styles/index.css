@@ -477,12 +477,36 @@ p {
   padding: 24px;
 }
 
+.editor-card {
+  width: min(900px, 100%);
+}
+
+.source-editor-layout,
+.editor-form {
+  display: grid;
+}
+
+.source-editor-layout {
+  grid-template-columns: minmax(230px, 0.9fr) minmax(0, 1.3fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.editor-form {
+  gap: 14px;
+}
+
 .validation-box {
   gap: 8px;
   border: 1px dashed var(--line);
   border-radius: 20px;
   padding: 16px;
   color: var(--text-soft);
+}
+
+.validation-panel {
+  min-height: 100%;
+  align-content: start;
 }
 
 .validation-box ul {
@@ -538,6 +562,10 @@ p {
   }
 
   .meta-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .source-editor-layout {
     grid-template-columns: 1fr;
   }
 

@@ -29,6 +29,19 @@ async function sha256Hex(value: string): Promise<string> {
   return Array.from(new Uint8Array(digest), (part) => part.toString(16).padStart(2, '0')).join('');
 }
 
+async function login(env: Env): Promise<string> {
+  const response = await app.request(
+    'https://example.com/api/auth/login',
+    {
+      method: 'POST',
+      body: JSON.stringify({ username: 'admin', password: 'secret' }),
+      headers: { 'content-type': 'application/json' }
+    },
+    env
+  );
+  return response.headers.get('set-cookie') || '';
+}
+
 describe('worker behaviors', () => {
   let env: Env;
 
@@ -56,16 +69,7 @@ describe('worker behaviors', () => {
   });
 
   it('returns https links from sub info', async () => {
-    const loginResponse = await app.request(
-      'https://example.com/api/auth/login',
-      {
-        method: 'POST',
-        body: JSON.stringify({ username: 'admin', password: 'secret' }),
-        headers: { 'content-type': 'application/json' }
-      },
-      env
-    );
-    const cookie = loginResponse.headers.get('set-cookie');
+    const cookie = await login(env);
     expect(cookie).toBeTruthy();
 
     const response = await app.request(
@@ -78,5 +82,56 @@ describe('worker behaviors', () => {
     const data = (await response.json()) as { formats: Array<{ url: string }> };
     expect(response.status).toBe(200);
     expect(data.formats.every((format) => format.url.startsWith('https://'))).toBe(true);
+  });
+
+  it('reorders sources through the dedicated route', async () => {
+    const cookie = await login(env);
+
+    const createSource = async (name: string) =>
+      app.request(
+        'https://example.com/api/sources',
+        {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            cookie
+          },
+          body: JSON.stringify({
+            name,
+            content: 'vmess://eyJ2IjoiMiIsInBzIjoiVGVzdCIsImFkZCI6ImV4YW1wbGUuY29tIiwicG9ydCI6IjQ0MyIsImlkIjoiMTExMTExMTEtMTExMS0xMTExLTExMTEtMTExMTExMTExMTExIiwiYWlkIjoiMCIsInNjeSI6ImF1dG8iLCJuZXQiOiJ3cyIsInR5cGUiOiJub25lIiwiaG9zdCI6ImV4YW1wbGUuY29tIiwicGF0aCI6Ii8iLCJ0bHMiOiJ0bHMiLCJzbmkiOiJleGFtcGxlLmNvbSJ9'
+          })
+        },
+        env
+      );
+
+    const firstResponse = await createSource('源 A');
+    const secondResponse = await createSource('源 B');
+    const firstData = (await firstResponse.json()) as { source: { id: string } };
+    const secondData = (await secondResponse.json()) as { source: { id: string } };
+
+    const reorderResponse = await app.request(
+      'https://example.com/api/sources/reorder',
+      {
+        method: 'PUT',
+        headers: {
+          'content-type': 'application/json',
+          cookie
+        },
+        body: JSON.stringify({ ids: [secondData.source.id, firstData.source.id] })
+      },
+      env
+    );
+
+    expect(reorderResponse.status).toBe(200);
+
+    const listResponse = await app.request(
+      'https://example.com/api/sources',
+      {
+        headers: { cookie }
+      },
+      env
+    );
+    const listData = (await listResponse.json()) as { sources: Array<{ id: string }> };
+    expect(listData.sources.map((source) => source.id)).toEqual([secondData.source.id, firstData.source.id]);
   });
 });
