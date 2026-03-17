@@ -1,0 +1,25 @@
+name = "qiankui-sub-cf"
+main = "packages/worker/src/index.ts"
+compatibility_date = "2025-03-01"
+workers_dev = true
+
+[assets]
+directory = "./packages/web/dist"
+binding = "ASSETS"
+
+[vars]
+AGGREGATE_TTL_SECONDS = "3600"
+MAX_LOG_ENTRIES = "200"
+
+[[kv_namespaces]]
+binding = "APP_KV"
+id = "replace-with-app-kv-id"
+preview_id = "replace-with-app-kv-preview-id"
+
+[[kv_namespaces]]
+binding = "CACHE_KV"
+id = "replace-with-cache-kv-id"
+preview_id = "replace-with-cache-kv-preview-id"
+
+[triggers]
+crons = ["0 * * * *"]
