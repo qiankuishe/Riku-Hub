@@ -24,6 +24,7 @@ const qrTitle = ref('');
 const qrCodeUrl = ref('');
 const deleteTarget = ref<Source | null>(null);
 let validateTimer: number | undefined;
+let validationRequestId = 0;
 
 const dialogTitle = computed(() => (editingSource.value ? '编辑订阅源' : '新增订阅源'));
 const cacheStatusText = computed(() => {
@@ -44,6 +45,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  cancelPendingValidation();
   uiStore.clearSecondaryNav();
 });
 
@@ -57,37 +59,74 @@ watch(formContent, () => {
 });
 
 async function validateCurrentInput() {
-  if (!formContent.value.trim()) {
+  const currentContent = formContent.value.trim();
+  if (!currentContent) {
+    cancelPendingValidation();
     validation.value = null;
+    errorMessage.value = '';
+    validating.value = false;
     return;
   }
+
+  const currentRequestId = ++validationRequestId;
   validating.value = true;
+  errorMessage.value = '';
   try {
-    validation.value = await sourcesApi.validate(formContent.value);
+    const result = await sourcesApi.validate(currentContent);
+    if (currentRequestId !== validationRequestId || currentContent !== formContent.value.trim() || !dialogVisible.value) {
+      return;
+    }
+    validation.value = result;
+    errorMessage.value = '';
   } catch (error) {
+    if (currentRequestId !== validationRequestId || !dialogVisible.value) {
+      return;
+    }
     validation.value = null;
     errorMessage.value = error instanceof Error ? error.message : '校验失败';
   } finally {
-    validating.value = false;
+    if (currentRequestId === validationRequestId) {
+      validating.value = false;
+    }
   }
 }
 
 function openCreateDialog() {
+  cancelPendingValidation();
   editingSource.value = null;
   formName.value = '';
   formContent.value = '';
   validation.value = null;
   errorMessage.value = '';
+  validating.value = false;
   dialogVisible.value = true;
 }
 
 function openEditDialog(source: Source) {
+  cancelPendingValidation();
   editingSource.value = source;
   formName.value = source.name;
   formContent.value = source.content;
   validation.value = null;
   errorMessage.value = '';
+  validating.value = false;
   dialogVisible.value = true;
+}
+
+function cancelPendingValidation() {
+  if (validateTimer) {
+    window.clearTimeout(validateTimer);
+    validateTimer = undefined;
+  }
+  validationRequestId += 1;
+}
+
+function closeEditorDialog() {
+  cancelPendingValidation();
+  dialogVisible.value = false;
+  validation.value = null;
+  errorMessage.value = '';
+  validating.value = false;
 }
 
 async function saveSource() {
@@ -108,7 +147,7 @@ async function saveSource() {
       await subscriptionsStore.createSource(formName.value.trim(), formContent.value.trim());
       uiStore.showToast('订阅源已创建');
     }
-    dialogVisible.value = false;
+    closeEditorDialog();
     await subscriptionsStore.loadPageData();
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '保存失败';
@@ -207,7 +246,7 @@ async function refreshAggregation() {
       :validating="validating"
       :error-message="errorMessage"
       :saving="subscriptionsStore.saving"
-      @close="dialogVisible = false"
+      @close="closeEditorDialog"
       @save="saveSource"
       @update:form-name="formName = $event"
       @update:form-content="formContent = $event"
