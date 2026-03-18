@@ -1168,6 +1168,8 @@ p {
 .nav-main-column {
   display: grid;
   gap: 18px;
+  width: min(100%, 1220px);
+  justify-self: start;
 }
 
 .nav-sections-panel {
