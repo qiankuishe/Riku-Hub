@@ -55,7 +55,7 @@ const errorMessage = ref('');
 const searchSectionId = 'nav-search-root';
 const localSearchReady = ref(false);
 const localSearchLoading = ref(false);
-const NAV_URL_DISPLAY_MAX_LENGTH = 20;
+const NAV_URL_DISPLAY_MAX_LENGTH = 18;
 const NAV_DESCRIPTION_MAX_LENGTH = 17;
 
 const recentLinks = computed(() => navigationStore.recentLinks.slice(0, 8));
@@ -281,6 +281,21 @@ function formatNavigationUrlDisplay(value: string) {
   } catch {
     return truncateText(value.replace(/^https?:\/\//i, ''), NAV_URL_DISPLAY_MAX_LENGTH);
   }
+}
+
+function formatNavigationTitle(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return '未命名站点';
+  }
+
+  const hasCjk = /[\u3400-\u9fff]/.test(trimmed);
+  const maxLength = hasCjk ? 5 : 10;
+  if (trimmed.length <= maxLength) {
+    return trimmed;
+  }
+
+  return `${trimmed.slice(0, Math.max(0, maxLength - 1))}···`;
 }
 
 function formatNavigationDescription(value: string) {
@@ -622,7 +637,7 @@ async function openSearchResult(result: SearchResult) {
                 <div class="nav-card-title">
                   <FaviconImage :url="link.url" :title="link.title" class-name="favicon-image" />
                   <div>
-                    <h3>{{ link.title }}</h3>
+                    <h3 :title="link.title">{{ formatNavigationTitle(link.title) }}</h3>
                     <p class="nav-link-url" :title="link.url">{{ formatNavigationUrlDisplay(link.url) }}</p>
                   </div>
                 </div>

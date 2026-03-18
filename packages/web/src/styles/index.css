@@ -1047,9 +1047,7 @@ p {
 }
 
 .nav-card-grid {
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 248px), 248px));
-  justify-content: start;
-  align-items: start;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .nav-card-grid-compact {
@@ -1077,6 +1075,12 @@ p {
 
 .nav-card-title > div {
   min-width: 0;
+}
+
+.nav-card-title h3 {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .nav-link-url {
@@ -1677,6 +1681,10 @@ html.dark .clipboard-type-image {
     grid-template-columns: 1fr;
   }
 
+  .nav-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .nav-search-form {
     grid-template-columns: 1fr;
   }
@@ -1725,5 +1733,11 @@ html.dark .clipboard-type-image {
 
   .notes-sidebar-panel {
     position: static;
+  }
+}
+
+@media (max-width: 640px) {
+  .nav-card-grid {
+    grid-template-columns: 1fr;
   }
 }
