@@ -15,7 +15,7 @@ const emit = defineEmits<{
       <button class="ghost small menu-button" @click="emit('menu')">菜单</button>
       <div>
         <h1>{{ title }}</h1>
-        <p class="subtitle">{{ subtitle }}</p>
+        <p v-if="subtitle" class="subtitle">{{ subtitle }}</p>
       </div>
     </div>
   </header>

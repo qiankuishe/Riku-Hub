@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import type { SnippetRecord, SnippetType } from '../../api';
@@ -22,6 +22,8 @@ const formContent = ref('');
 const errorMessage = ref('');
 const highlightedSnippetId = ref<string | null>(null);
 let searchTimer: number | undefined;
+const toolbarSectionId = 'snippets-toolbar';
+const listSectionId = 'snippets-list';
 
 const filteredLabel = computed(() => (filterType.value === 'all' ? '全部' : filterType.value));
 
@@ -42,6 +44,43 @@ onMounted(() => {
     filterType.value = route.query.type as SnippetType | 'all';
   }
   void snippetsStore.loadAll({ type: filterType.value, q: searchQuery.value });
+});
+
+watch(
+  [filterType, () => snippetsStore.snippets.length],
+  ([activeType, count]) => {
+    uiStore.setSecondaryNav({
+      title: '片段库',
+      activeKey: activeType,
+      items: [
+        { key: 'all', label: '全部', targetId: toolbarSectionId },
+        { key: 'text', label: '文本', to: '/app/snippets?type=text' },
+        { key: 'code', label: '代码', to: '/app/snippets?type=code' },
+        { key: 'link', label: '链接', to: '/app/snippets?type=link' },
+        { key: 'image', label: '图片', to: '/app/snippets?type=image' },
+        { key: 'list', label: '结果', badge: String(count), targetId: listSectionId }
+      ]
+    });
+  },
+  { immediate: true }
+);
+
+watch(
+  () => route.query.type,
+  (value) => {
+    if (typeof value === 'string' && ['text', 'code', 'link', 'image'].includes(value)) {
+      filterType.value = value as SnippetType;
+      return;
+    }
+    if (!value) {
+      filterType.value = 'all';
+    }
+  },
+  { immediate: true }
+);
+
+onUnmounted(() => {
+  uiStore.clearSecondaryNav();
 });
 
 watch(
@@ -145,11 +184,10 @@ function handleImageUpload(event: Event) {
 
 <template>
   <div class="page-shell page-shell-wide">
-    <section class="panel">
+    <section :id="toolbarSectionId" class="panel">
       <div class="section-head">
         <div>
           <h2>片段库</h2>
-          <p class="section-subtitle">把文本、代码、链接和小图片沉淀成长期可搜索的资料片段。</p>
         </div>
         <button class="primary" @click="openDialog()">新建片段</button>
       </div>
@@ -184,7 +222,7 @@ function handleImageUpload(event: Event) {
       </div>
 
       <div v-if="snippetsStore.snippets.length === 0" class="empty-state">当前筛选下还没有片段。</div>
-      <div v-else class="snippet-grid">
+      <div :id="listSectionId" v-else class="snippet-grid">
         <article
           v-for="snippet in snippetsStore.snippets"
           :key="snippet.id"
@@ -226,7 +264,6 @@ function handleImageUpload(event: Event) {
         <div class="section-head">
           <div>
             <h2>{{ editingSnippet ? '编辑片段' : '新增片段' }}</h2>
-            <p class="section-subtitle">首版重点优化快速录入、复制和按类型整理，不做公开分享。</p>
           </div>
         </div>
 
@@ -273,7 +310,6 @@ function handleImageUpload(event: Event) {
         <div class="section-head">
           <div>
             <h2>确认删除片段</h2>
-            <p class="section-subtitle">删除后该片段会从当前资料库中移除。</p>
           </div>
         </div>
         <p class="confirm-text">确定删除「{{ deleteTarget.title }}」吗？</p>

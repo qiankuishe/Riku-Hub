@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import FaviconImage from '../../components/FaviconImage.vue';
 import type { NavigationCategory, NavigationLink } from '../../api';
@@ -54,6 +54,7 @@ const linkForm = ref({
 const deleteCategoryTarget = ref<NavigationCategory | null>(null);
 const deleteLinkTarget = ref<NavigationLink | null>(null);
 const errorMessage = ref('');
+const searchSectionId = 'nav-search-root';
 
 const recentLinks = computed(() => navigationStore.recentLinks.slice(0, 8));
 
@@ -128,6 +129,31 @@ watch(
   { deep: true, immediate: true }
 );
 
+watch(
+  [() => navigationStore.categories, activeCategoryId],
+  ([categories, activeId]) => {
+    uiStore.setSecondaryNav({
+      title: '导航分类',
+      activeKey: activeId ?? 'all',
+      items: [
+        {
+          key: 'all',
+          label: '全部',
+          badge: String(navigationStore.totalLinks),
+          targetId: searchSectionId
+        },
+        ...categories.map((category) => ({
+          key: category.id,
+          label: category.name,
+          badge: String(category.links.length),
+          targetId: getCategorySectionId(category.id)
+        }))
+      ]
+    });
+  },
+  { deep: true, immediate: true }
+);
+
 onMounted(async () => {
   await Promise.all([
     navigationStore.loadAll(),
@@ -136,12 +162,17 @@ onMounted(async () => {
   ]);
 });
 
+onUnmounted(() => {
+  uiStore.clearSecondaryNav();
+});
+
 function getCategorySectionId(categoryId: string) {
   return `nav-category-${categoryId}`;
 }
 
 function focusCategory(categoryId: string | null) {
   activeCategoryId.value = categoryId;
+  uiStore.setSecondaryNavActive(categoryId ?? 'all');
   if (categoryId === null) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     return;
@@ -361,77 +392,12 @@ async function openSearchResult(result: SearchResult) {
 </script>
 
 <template>
-  <div class="page-shell page-shell-wide nav-page-layout">
-    <aside class="panel nav-sidebar-panel nav-sidebar-sticky">
-      <div class="nav-sidebar-inner">
-        <div class="section-head">
-          <div>
-            <h2>分类定位</h2>
-            <p class="section-subtitle">二级菜单固定在左侧，右边内容单独滚动，才能真正做到快速定位。</p>
-          </div>
-          <button class="primary" @click="openCategoryDialog()">新增分类</button>
-        </div>
-
-        <div class="nav-section-sidebar">
-          <button
-            class="nav-section-link"
-            :class="{ 'nav-section-link-active': activeCategoryId === null }"
-            @click="focusCategory(null)"
-          >
-            <div class="nav-section-row">
-              <strong>全部分类</strong>
-              <span>{{ navigationStore.totalLinks }} 项</span>
-            </div>
-          </button>
-
-          <button
-            v-for="category in navigationStore.categories"
-            :key="category.id"
-            class="nav-section-link"
-            :class="{ 'nav-section-link-active': category.id === activeCategoryId }"
-            @click="focusCategory(category.id)"
-          >
-            <div class="nav-section-row">
-              <strong>{{ category.name }}</strong>
-              <span>{{ category.links.length }} 项</span>
-            </div>
-            <div v-if="isEditMode" class="nav-item-actions">
-              <button
-                class="ghost small"
-                :disabled="navigationStore.saving || isFirstCategory(category)"
-                @click.stop="moveCategory(category, -1)"
-              >
-                上移
-              </button>
-              <button
-                class="ghost small"
-                :disabled="navigationStore.saving || isLastCategory(category)"
-                @click.stop="moveCategory(category, 1)"
-              >
-                下移
-              </button>
-              <button class="ghost small" :disabled="navigationStore.saving" @click.stop="openCategoryDialog(category)">
-                编辑
-              </button>
-              <button
-                class="ghost danger small"
-                :disabled="navigationStore.saving"
-                @click.stop="deleteCategoryTarget = category"
-              >
-                删除
-              </button>
-            </div>
-          </button>
-        </div>
-      </div>
-    </aside>
-
+  <div class="page-shell page-shell-wide">
     <div class="nav-main-column">
-      <section class="panel nav-search-panel">
+      <section :id="searchSectionId" class="panel nav-search-panel">
         <div class="section-head">
           <div>
             <h2>站点搜索</h2>
-            <p class="section-subtitle">外部搜索、站内联搜、分类跳转和最近访问都保留在同一条主工作流里。</p>
           </div>
           <button class="ghost" @click="isEditMode = !isEditMode">
             {{ isEditMode ? '退出编辑' : '进入编辑' }}
@@ -462,7 +428,6 @@ async function openSearchResult(result: SearchResult) {
           <div class="section-head nav-search-results-head">
             <div>
               <h3>站内结果</h3>
-              <p class="section-subtitle">会同时搜索导航、笔记和片段库。</p>
             </div>
             <span class="inline-status">{{ localSearchResults.length }} 条</span>
           </div>
@@ -508,7 +473,6 @@ async function openSearchResult(result: SearchResult) {
         <div class="section-head">
           <div>
             <h2>最近访问</h2>
-            <p class="section-subtitle">保留原导航页的最近访问入口，方便回到刚打开过的网站。</p>
           </div>
         </div>
 
@@ -537,9 +501,18 @@ async function openSearchResult(result: SearchResult) {
           <div class="section-head">
             <div>
               <h2>{{ category.name }}</h2>
-              <p class="section-subtitle">{{ category.links.length }} 个站点，图标会按多源回退并缓存到浏览器本地。</p>
             </div>
-            <button v-if="isEditMode" class="primary" @click="openLinkDialog(undefined, category.id)">新增站点</button>
+            <div v-if="isEditMode" class="nav-card-actions">
+              <button class="ghost small" :disabled="navigationStore.saving || isFirstCategory(category)" @click="moveCategory(category, -1)">
+                上移分类
+              </button>
+              <button class="ghost small" :disabled="navigationStore.saving || isLastCategory(category)" @click="moveCategory(category, 1)">
+                下移分类
+              </button>
+              <button class="ghost small" :disabled="navigationStore.saving" @click="openCategoryDialog(category)">编辑分类</button>
+              <button class="ghost danger small" :disabled="navigationStore.saving" @click="deleteCategoryTarget = category">删除分类</button>
+              <button class="primary" @click="openLinkDialog(undefined, category.id)">新增站点</button>
+            </div>
           </div>
 
           <div v-if="category.links.length === 0" class="empty-state">当前分类还没有站点。</div>
@@ -586,7 +559,6 @@ async function openSearchResult(result: SearchResult) {
         <div class="section-head">
           <div>
             <h2>{{ editingCategory ? '编辑分类' : '新增分类' }}</h2>
-            <p class="section-subtitle">保留原导航项目的分类概念，但统一到现在的视觉语言里。</p>
           </div>
         </div>
 
@@ -611,7 +583,6 @@ async function openSearchResult(result: SearchResult) {
         <div class="section-head">
           <div>
             <h2>{{ editingLink ? '编辑站点' : '新增站点' }}</h2>
-            <p class="section-subtitle">这里已经回到原导航项目的主工作流：分类、站点、搜索、最近访问都围着同一页展开。</p>
           </div>
         </div>
 
@@ -657,7 +628,6 @@ async function openSearchResult(result: SearchResult) {
         <div class="section-head">
           <div>
             <h2>确认删除分类</h2>
-            <p class="section-subtitle">删除分类时会连同该分类下的站点一起删除。</p>
           </div>
         </div>
         <p class="confirm-text">确定删除「{{ deleteCategoryTarget.name }}」吗？</p>
@@ -675,7 +645,6 @@ async function openSearchResult(result: SearchResult) {
         <div class="section-head">
           <div>
             <h2>确认删除站点</h2>
-            <p class="section-subtitle">删除后可以重新添加，但当前排序位置会丢失。</p>
           </div>
         </div>
         <p class="confirm-text">确定删除「{{ deleteLinkTarget.title }}」吗？</p>

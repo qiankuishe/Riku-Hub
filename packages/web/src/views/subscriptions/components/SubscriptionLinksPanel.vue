@@ -27,7 +27,6 @@ function shortenUrl(url: string, maxLength = 54) {
     <div class="section-head">
       <div>
         <h2>订阅链接</h2>
-        <p class="section-subtitle">所有展示链接都固定为 HTTPS，客户端可直接订阅。</p>
       </div>
       <div class="status-pill" :data-status="subInfo?.cacheStatus || 'missing'">
         {{ cacheStatusText }}

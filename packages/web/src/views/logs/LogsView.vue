@@ -1,14 +1,38 @@
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { onMounted, onUnmounted, watch } from 'vue';
 import { useLogsStore } from '../../stores/logs';
+import { useUiStore } from '../../stores/ui';
 import { formatDateTime } from '../../utils/date';
 
 const logsStore = useLogsStore();
+const uiStore = useUiStore();
+const logsSectionId = 'logs-list';
 
 onMounted(() => {
+  uiStore.setSecondaryNav({
+    title: '运行日志',
+    activeKey: 'recent',
+    items: [{ key: 'recent', label: '最近日志', badge: String(logsStore.logs.length), targetId: logsSectionId }]
+  });
   if (logsStore.logs.length === 0) {
     void logsStore.loadRecent(50);
   }
+});
+
+watch(
+  () => logsStore.logs.length,
+  (count) => {
+    uiStore.setSecondaryNav({
+      title: '运行日志',
+      activeKey: 'recent',
+      items: [{ key: 'recent', label: '最近日志', badge: String(count), targetId: logsSectionId }]
+    });
+  },
+  { immediate: true }
+);
+
+onUnmounted(() => {
+  uiStore.clearSecondaryNav();
 });
 </script>
 
@@ -18,7 +42,6 @@ onMounted(() => {
       <div class="section-head">
         <div>
           <h2>运行日志</h2>
-          <p class="section-subtitle">查看登录、刷新缓存和订阅请求的最近记录。</p>
         </div>
         <button class="ghost" :disabled="logsStore.loading" @click="logsStore.loadRecent(50)">
           {{ logsStore.loading ? '刷新中...' : '刷新日志' }}
@@ -26,7 +49,7 @@ onMounted(() => {
       </div>
 
       <div v-if="logsStore.logs.length === 0" class="empty-state">暂无日志。</div>
-      <div v-else class="log-list">
+      <div :id="logsSectionId" v-else class="log-list">
         <article v-for="log in logsStore.logs" :key="log.id" class="log-item">
           <div class="log-head">
             <strong>{{ log.action }}</strong>

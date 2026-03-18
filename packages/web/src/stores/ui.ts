@@ -1,10 +1,21 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 
+export interface SecondaryNavItem {
+  key: string;
+  label: string;
+  badge?: string;
+  targetId?: string;
+  to?: string;
+}
+
 export const useUiStore = defineStore('ui', () => {
   const darkMode = ref(localStorage.getItem('darkMode') === 'true');
   const toastMessage = ref('');
   const mobileNavOpen = ref(false);
+  const secondaryNavTitle = ref('');
+  const secondaryNavItems = ref<SecondaryNavItem[]>([]);
+  const secondaryNavActiveKey = ref('');
   let toastTimer: number | undefined;
 
   function applyTheme() {
@@ -39,16 +50,38 @@ export const useUiStore = defineStore('ui', () => {
     mobileNavOpen.value = false;
   }
 
+  function setSecondaryNav(payload: { title?: string; items: SecondaryNavItem[]; activeKey?: string }) {
+    secondaryNavTitle.value = payload.title ?? '';
+    secondaryNavItems.value = payload.items;
+    secondaryNavActiveKey.value = payload.activeKey ?? payload.items[0]?.key ?? '';
+  }
+
+  function setSecondaryNavActive(key: string) {
+    secondaryNavActiveKey.value = key;
+  }
+
+  function clearSecondaryNav() {
+    secondaryNavTitle.value = '';
+    secondaryNavItems.value = [];
+    secondaryNavActiveKey.value = '';
+  }
+
   applyTheme();
 
   return {
     darkMode,
     toastMessage,
     mobileNavOpen,
+    secondaryNavTitle,
+    secondaryNavItems,
+    secondaryNavActiveKey,
     toggleDarkMode,
     showToast,
     hideToast,
     openMobileNav,
-    closeMobileNav
+    closeMobileNav,
+    setSecondaryNav,
+    setSecondaryNavActive,
+    clearSecondaryNav
   };
 });

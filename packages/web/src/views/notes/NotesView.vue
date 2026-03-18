@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
-import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useNotesStore } from '../../stores/notes';
 import { useUiStore } from '../../stores/ui';
@@ -22,6 +22,8 @@ const deleteTargetId = ref<string | null>(null);
 const highlightedNoteId = ref<string | null>(null);
 let saveTimer: number | undefined;
 let hydrating = false;
+const listSectionId = 'notes-list';
+const editorSectionId = 'notes-editor';
 
 const selectedNote = computed(() => notesStore.notes.find((note) => note.id === selectedNoteId.value) ?? null);
 const renderedPreview = computed(() => DOMPurify.sanitize(marked.parse(editContent.value) as string));
@@ -59,7 +61,34 @@ watch([editTitle, editContent], () => {
 });
 
 onMounted(() => {
+  uiStore.setSecondaryNav({
+    title: '笔记',
+    activeKey: 'list',
+    items: [
+      { key: 'list', label: '笔记列表', badge: String(notesStore.notes.length), targetId: listSectionId },
+      { key: 'editor', label: '编辑区', targetId: editorSectionId }
+    ]
+  });
   void notesStore.loadAll();
+});
+
+watch(
+  () => notesStore.notes.length,
+  (count) => {
+    uiStore.setSecondaryNav({
+      title: '笔记',
+      activeKey: uiStore.secondaryNavActiveKey || 'list',
+      items: [
+        { key: 'list', label: '笔记列表', badge: String(count), targetId: listSectionId },
+        { key: 'editor', label: '编辑区', targetId: editorSectionId }
+      ]
+    });
+  },
+  { immediate: true }
+);
+
+onUnmounted(() => {
+  uiStore.clearSecondaryNav();
 });
 
 watch(
@@ -141,11 +170,10 @@ async function confirmDelete() {
 <template>
   <div class="page-shell page-shell-wide">
     <div class="notes-layout">
-      <section class="panel notes-sidebar-panel">
+      <section :id="listSectionId" class="panel notes-sidebar-panel">
         <div class="section-head">
           <div>
             <h2>笔记列表</h2>
-            <p class="section-subtitle">双栏笔记本更适合长文与持续记录。</p>
           </div>
           <button class="primary" @click="createNote">新建</button>
         </div>
@@ -172,13 +200,12 @@ async function confirmDelete() {
         </div>
       </section>
 
-      <section class="panel notes-editor-panel">
+      <section :id="editorSectionId" class="panel notes-editor-panel">
         <div v-if="!selectedNote" class="empty-state">请选择一条笔记开始编辑。</div>
         <template v-else>
           <div class="section-head">
             <div>
               <h2>{{ selectedNote.title || '无标题' }}</h2>
-              <p class="section-subtitle">支持自动保存、预览切换和置顶排序。</p>
             </div>
             <div class="notes-toolbar">
               <span v-if="saveState === 'saving'" class="inline-status">保存中...</span>
@@ -215,7 +242,6 @@ async function confirmDelete() {
         <div class="section-head">
           <div>
             <h2>确认删除笔记</h2>
-            <p class="section-subtitle">删除后不可恢复，请确认后再继续。</p>
           </div>
         </div>
         <p class="confirm-text">确定删除当前笔记吗？</p>

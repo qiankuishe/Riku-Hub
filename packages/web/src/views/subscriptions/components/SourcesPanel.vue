@@ -28,7 +28,6 @@ function isLastSource(source: Source, sources: Source[]) {
     <div class="section-head">
       <div>
         <h2>订阅源管理</h2>
-        <p class="section-subtitle">支持订阅 URL 与节点 URI 混合输入，可随时重新排序。</p>
       </div>
       <button class="primary" @click="emit('create')">新增订阅源</button>
     </div>

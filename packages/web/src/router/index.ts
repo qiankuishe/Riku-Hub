@@ -26,7 +26,7 @@ const routes: RouteRecordRaw[] = [
         meta: {
           requiresAuth: true,
           title: '网站导航',
-          subtitle: '统一入口与分类导航骨架，后续直接接入你现有的导航能力。'
+          subtitle: ''
         }
       },
       {
@@ -36,7 +36,7 @@ const routes: RouteRecordRaw[] = [
         meta: {
           requiresAuth: true,
           title: '订阅聚合',
-          subtitle: '管理订阅源、查看订阅链接与刷新聚合缓存。'
+          subtitle: ''
         }
       },
       {
@@ -46,7 +46,7 @@ const routes: RouteRecordRaw[] = [
         meta: {
           requiresAuth: true,
           title: '笔记',
-          subtitle: '双栏笔记本，支持自动保存、Markdown 预览和置顶管理。'
+          subtitle: ''
         }
       },
       {
@@ -56,7 +56,7 @@ const routes: RouteRecordRaw[] = [
         meta: {
           requiresAuth: true,
           title: '片段库',
-          subtitle: '沉淀文本、代码、链接和小图片片段，快速复制与检索。'
+          subtitle: ''
         }
       },
       {
@@ -66,7 +66,7 @@ const routes: RouteRecordRaw[] = [
         meta: {
           requiresAuth: true,
           title: '运行日志',
-          subtitle: '查看登录、刷新与订阅请求等最近活动记录。'
+          subtitle: ''
         }
       },
       {
@@ -76,7 +76,7 @@ const routes: RouteRecordRaw[] = [
         meta: {
           requiresAuth: true,
           title: '系统设置',
-          subtitle: '整理系统状态、界面偏好和后续扩展入口。'
+          subtitle: ''
         }
       }
     ]

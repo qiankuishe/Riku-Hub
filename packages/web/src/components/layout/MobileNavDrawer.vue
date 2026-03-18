@@ -1,16 +1,19 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router';
+import type { SecondaryNavItem } from '../../stores/ui';
 import { APP_NAV_ITEMS } from './nav';
 
 defineProps<{
   open: boolean;
-  darkMode: boolean;
+  currentPath: string;
+  secondaryTitle: string;
+  secondaryItems: SecondaryNavItem[];
+  secondaryActiveKey: string;
 }>();
 
 const emit = defineEmits<{
   close: [];
-  toggleTheme: [];
-  logout: [];
+  selectSecondary: [item: SecondaryNavItem];
 }>();
 </script>
 
@@ -35,20 +38,28 @@ const emit = defineEmits<{
             :key="item.to"
             :to="item.to"
             class="sidebar-link"
-            active-class="sidebar-link-active"
+            :class="{ 'sidebar-link-active': currentPath.startsWith(item.to) }"
             @click="emit('close')"
           >
             <span>{{ item.label }}</span>
-            <small>{{ item.caption }}</small>
           </RouterLink>
         </nav>
 
-        <div class="sidebar-footer sidebar-footer-mobile">
-          <button class="ghost sidebar-footer-button" @click="emit('toggleTheme')">
-            {{ darkMode ? '浅色模式' : '深色模式' }}
-          </button>
-          <button class="ghost sidebar-footer-button" @click="emit('logout')">退出登录</button>
-        </div>
+        <section v-if="secondaryItems.length" class="mobile-secondary-nav">
+          <div class="mobile-secondary-nav-head">{{ secondaryTitle }}</div>
+          <div class="mobile-secondary-nav-list">
+            <button
+              v-for="item in secondaryItems"
+              :key="item.key"
+              class="secondary-link"
+              :class="{ 'secondary-link-active': secondaryActiveKey === item.key }"
+              @click="emit('selectSecondary', item)"
+            >
+              <span>{{ item.label }}</span>
+              <small v-if="item.badge">{{ item.badge }}</small>
+            </button>
+          </div>
+        </section>
       </aside>
     </div>
   </transition>

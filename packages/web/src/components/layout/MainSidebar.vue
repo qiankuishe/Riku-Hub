@@ -3,45 +3,29 @@ import { RouterLink } from 'vue-router';
 import { APP_NAV_ITEMS } from './nav';
 
 defineProps<{
-  darkMode: boolean;
-}>();
-
-const emit = defineEmits<{
-  toggleTheme: [];
-  logout: [];
+  currentPath: string;
 }>();
 </script>
 
 <template>
   <aside class="main-sidebar">
-    <div class="sidebar-main">
-      <div class="sidebar-brand">
-        <img src="/logo.png" alt="QianKui" class="sidebar-logo" />
-        <div>
-          <p class="eyebrow">Control Center</p>
-          <strong>QianKui</strong>
-        </div>
-      </div>
-
-      <nav class="sidebar-nav">
-        <RouterLink
-          v-for="item in APP_NAV_ITEMS"
-          :key="item.to"
-          :to="item.to"
-          class="sidebar-link"
-          active-class="sidebar-link-active"
-        >
-          <span>{{ item.label }}</span>
-          <small>{{ item.caption }}</small>
-        </RouterLink>
-      </nav>
+    <div class="sidebar-brand sidebar-brand-compact">
+      <img src="/logo.png" alt="QianKui" class="sidebar-logo" />
+      <strong>Q</strong>
     </div>
 
-    <div class="sidebar-footer">
-      <button class="ghost sidebar-footer-button" @click="emit('toggleTheme')">
-        {{ darkMode ? '浅色模式' : '深色模式' }}
-      </button>
-      <button class="ghost sidebar-footer-button" @click="emit('logout')">退出登录</button>
-    </div>
+    <nav class="sidebar-nav sidebar-nav-compact">
+      <RouterLink
+        v-for="item in APP_NAV_ITEMS"
+        :key="item.to"
+        :to="item.to"
+        class="sidebar-link sidebar-link-compact"
+        :class="{ 'sidebar-link-active': currentPath.startsWith(item.to) }"
+        :title="item.label"
+      >
+        <span class="sidebar-link-badge">{{ item.shortLabel.slice(0, 1) }}</span>
+        <small>{{ item.shortLabel }}</small>
+      </RouterLink>
+    </nav>
   </aside>
 </template>

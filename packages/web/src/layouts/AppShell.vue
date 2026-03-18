@@ -1,18 +1,18 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { authApi } from '../api';
 import AppTopbar from '../components/layout/AppTopbar.vue';
 import MainSidebar from '../components/layout/MainSidebar.vue';
 import MobileNavDrawer from '../components/layout/MobileNavDrawer.vue';
-import { useUiStore } from '../stores/ui';
+import SecondarySidebar from '../components/layout/SecondarySidebar.vue';
+import { type SecondaryNavItem, useUiStore } from '../stores/ui';
 
 const route = useRoute();
 const router = useRouter();
 const uiStore = useUiStore();
 
 const title = computed(() => String(route.meta.title ?? 'QianKui'));
-const subtitle = computed(() => String(route.meta.subtitle ?? 'Cloudflare Workers 后台'));
+const subtitle = computed(() => String(route.meta.subtitle ?? ''));
 
 watch(
   () => route.fullPath,
@@ -21,10 +21,21 @@ watch(
   }
 );
 
-async function logout() {
-  await authApi.logout().catch(() => undefined);
+async function handleSecondarySelect(item: SecondaryNavItem) {
   uiStore.closeMobileNav();
-  await router.push('/login');
+  if (item.to) {
+    await router.push(item.to);
+    uiStore.setSecondaryNavActive(item.key);
+    return;
+  }
+
+  if (item.targetId) {
+    uiStore.setSecondaryNavActive(item.key);
+    document.getElementById(item.targetId)?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
+    });
+  }
 }
 </script>
 
@@ -36,7 +47,14 @@ async function logout() {
       </div>
     </transition>
 
-    <MainSidebar class="desktop-only" :dark-mode="uiStore.darkMode" @toggle-theme="uiStore.toggleDarkMode" @logout="logout" />
+    <MainSidebar class="desktop-only" :current-path="route.path" />
+
+    <SecondarySidebar
+      :title="uiStore.secondaryNavTitle || title"
+      :items="uiStore.secondaryNavItems"
+      :active-key="uiStore.secondaryNavActiveKey"
+      @select="handleSecondarySelect"
+    />
 
     <div class="app-shell-main">
       <AppTopbar :title="title" :subtitle="subtitle" @menu="uiStore.openMobileNav" />
@@ -48,10 +66,12 @@ async function logout() {
 
     <MobileNavDrawer
       :open="uiStore.mobileNavOpen"
-      :dark-mode="uiStore.darkMode"
+      :current-path="route.path"
+      :secondary-title="uiStore.secondaryNavTitle || title"
+      :secondary-items="uiStore.secondaryNavItems"
+      :secondary-active-key="uiStore.secondaryNavActiveKey"
       @close="uiStore.closeMobileNav"
-      @toggle-theme="uiStore.toggleDarkMode"
-      @logout="logout"
+      @select-secondary="handleSecondarySelect"
     />
   </div>
 </template>
