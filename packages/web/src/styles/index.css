@@ -353,7 +353,7 @@ p {
   border-radius: 0 28px 28px 0;
   border-left: none;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 0;
   overflow: hidden;
   flex-shrink: 0;
@@ -415,7 +415,7 @@ p {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 4px 0 18px;
+  padding: 4px 0 24px;
   scrollbar-gutter: stable;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
@@ -426,10 +426,46 @@ p {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 0 0 6px;
+  padding: 0 0 14px;
   scrollbar-gutter: stable;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+}
+
+.sidebar-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 6px 2px;
+  border-top: 1px solid var(--line);
+  color: var(--text-soft);
+  flex-shrink: 0;
+}
+
+.sidebar-repo-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  color: inherit;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.sidebar-repo-link:hover {
+  background: rgba(160, 98, 45, 0.08);
+  color: var(--text);
+}
+
+.sidebar-repo-link svg {
+  width: 16px;
+  height: 16px;
+}
+
+.sidebar-version {
+  font-size: 12px;
+  letter-spacing: 0.04em;
 }
 
 .sidebar-group {
