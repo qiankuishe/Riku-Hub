@@ -119,6 +119,10 @@
   background: transparent;
   border-radius: 10px;
   min-height: 38px;
+  height: 38px;
+  width: 100%;
+  flex-shrink: 0;
+  line-height: 1;
   color: var(--rk-text);
   display: flex;
   align-items: center;
@@ -278,5 +282,10 @@
 
   .topbar .menu-button {
     display: inline-flex !important;
+  }
+
+  .sidebar-link-button {
+    min-height: 36px;
+    height: 36px;
   }
 }
