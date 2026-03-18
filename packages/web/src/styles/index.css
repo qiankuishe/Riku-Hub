@@ -1082,6 +1082,12 @@ p {
   font-size: 13px;
 }
 
+.nav-card-description {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .nav-card-meta {
   display: flex;
   justify-content: space-between;

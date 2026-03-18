@@ -708,7 +708,7 @@ app.delete('/api/navigation/categories/:id', async (c) => {
 app.post('/api/navigation/links', async (c) => {
   const body = await readJson<{ categoryId?: string; title?: string; url?: string; description?: string }>(c.req.raw);
   const title = body.title?.trim();
-  const url = body.url?.trim();
+  const url = normalizeNavigationUrl(body.url);
   const categoryId = body.categoryId?.trim();
 
   if (!categoryId || !title || !url) {
@@ -782,7 +782,7 @@ app.put('/api/navigation/links/:id', async (c) => {
     return c.json({ error: '目标分类不存在' }, 404);
   }
 
-  const nextUrl = body.url?.trim() ?? link.url;
+  const nextUrl = body.url ? normalizeNavigationUrl(body.url) : link.url;
   if (!isSafeNavigationUrl(nextUrl)) {
     return c.json({ error: '站点链接必须是 http 或 https 地址' }, 400);
   }
@@ -2718,6 +2718,19 @@ function isSafeNavigationUrl(url: string): boolean {
   } catch {
     return false;
   }
+}
+
+function normalizeNavigationUrl(value: string | null | undefined): string {
+  const trimmed = value?.trim() ?? '';
+  if (!trimmed) {
+    return '';
+  }
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+
+  return `https://${trimmed}`;
 }
 
 function isSnippetType(value: string | null | undefined): value is SnippetType {

@@ -55,6 +55,8 @@ const errorMessage = ref('');
 const searchSectionId = 'nav-search-root';
 const localSearchReady = ref(false);
 const localSearchLoading = ref(false);
+const NAV_URL_DISPLAY_MAX_LENGTH = 20;
+const NAV_DESCRIPTION_MAX_LENGTH = 17;
 
 const recentLinks = computed(() => navigationStore.recentLinks.slice(0, 8));
 const hasCategories = computed(() => navigationStore.categories.length > 0);
@@ -250,19 +252,59 @@ function openLinkDialog(link?: NavigationLink, categoryId?: string) {
   linkDialogVisible.value = true;
 }
 
+function normalizeNavigationUrl(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+
+  return `https://${trimmed}`;
+}
+
+function truncateText(value: string, maxLength: number) {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, Math.max(0, maxLength - 3))}···`;
+}
+
+function formatNavigationUrlDisplay(value: string) {
+  try {
+    const parsed = new URL(value);
+    const path = parsed.pathname === '/' ? '' : parsed.pathname;
+    return truncateText(`${parsed.hostname}${path}`, NAV_URL_DISPLAY_MAX_LENGTH);
+  } catch {
+    return truncateText(value.replace(/^https?:\/\//i, ''), NAV_URL_DISPLAY_MAX_LENGTH);
+  }
+}
+
+function formatNavigationDescription(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return '暂无说明';
+  }
+  return truncateText(trimmed, NAV_DESCRIPTION_MAX_LENGTH);
+}
+
 async function saveLink() {
   if (!linkForm.value.categoryId || !linkForm.value.title.trim() || !linkForm.value.url.trim()) {
     errorMessage.value = '分类、标题和链接都不能为空';
     return;
   }
 
+  const normalizedUrl = normalizeNavigationUrl(linkForm.value.url);
   errorMessage.value = '';
   try {
     if (editingLink.value) {
       await navigationStore.updateLink(editingLink.value.id, {
         categoryId: linkForm.value.categoryId,
         title: linkForm.value.title.trim(),
-        url: linkForm.value.url.trim(),
+        url: normalizedUrl,
         description: linkForm.value.description.trim()
       });
       uiStore.showToast('站点已更新');
@@ -270,7 +312,7 @@ async function saveLink() {
       await navigationStore.createLink({
         categoryId: linkForm.value.categoryId,
         title: linkForm.value.title.trim(),
-        url: linkForm.value.url.trim(),
+        url: normalizedUrl,
         description: linkForm.value.description.trim()
       });
       uiStore.showToast('站点已创建');
@@ -581,13 +623,13 @@ async function openSearchResult(result: SearchResult) {
                   <FaviconImage :url="link.url" :title="link.title" class-name="favicon-image" />
                   <div>
                     <h3>{{ link.title }}</h3>
-                    <p class="nav-link-url">{{ link.url }}</p>
+                    <p class="nav-link-url" :title="link.url">{{ formatNavigationUrlDisplay(link.url) }}</p>
                   </div>
                 </div>
                 <a v-if="!isEditMode" :href="link.url" target="_blank" rel="noreferrer" @click.stop>打开</a>
               </div>
 
-              <p>{{ link.description || '暂无说明' }}</p>
+              <p class="nav-card-description" :title="link.description || '暂无说明'">{{ formatNavigationDescription(link.description) }}</p>
 
               <div class="nav-card-meta">
                 <span>{{ link.visitCount || 0 }} 次访问</span>
@@ -655,7 +697,7 @@ async function openSearchResult(result: SearchResult) {
 
           <label class="field">
             <span>站点链接</span>
-            <input v-model="linkForm.url" placeholder="https://example.com" />
+            <input v-model="linkForm.url" placeholder="example.com 或 https://example.com" />
           </label>
 
           <label class="field">
