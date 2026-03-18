@@ -203,6 +203,54 @@
   color: var(--rk-brand-strong);
 }
 
+.v3-chip--text {
+  border-color: rgba(110, 110, 115, 0.34);
+  background: rgba(110, 110, 115, 0.08);
+  color: #545458;
+}
+
+.v3-chip--text.active {
+  border-color: rgba(110, 110, 115, 0.5);
+  background: rgba(110, 110, 115, 0.18);
+  color: #2c2c2f;
+}
+
+.v3-chip--code {
+  border-color: rgba(67, 93, 196, 0.34);
+  background: rgba(67, 93, 196, 0.08);
+  color: #33438b;
+}
+
+.v3-chip--code.active {
+  border-color: rgba(67, 93, 196, 0.48);
+  background: rgba(67, 93, 196, 0.18);
+  color: #23306e;
+}
+
+.v3-chip--link {
+  border-color: rgba(24, 143, 105, 0.34);
+  background: rgba(24, 143, 105, 0.09);
+  color: #116b4f;
+}
+
+.v3-chip--link.active {
+  border-color: rgba(24, 143, 105, 0.48);
+  background: rgba(24, 143, 105, 0.18);
+  color: #0e4f3b;
+}
+
+.v3-chip--image {
+  border-color: rgba(191, 110, 33, 0.34);
+  background: rgba(191, 110, 33, 0.1);
+  color: #8d4f17;
+}
+
+.v3-chip--image.active {
+  border-color: rgba(191, 110, 33, 0.5);
+  background: rgba(191, 110, 33, 0.2);
+  color: #6a3b11;
+}
+
 .v3-split {
   display: grid;
   grid-template-columns: 300px minmax(0, 1fr);
@@ -224,6 +272,30 @@
 .v3-item.active {
   border-color: rgba(123, 68, 26, 0.3);
   background: rgba(123, 68, 26, 0.08);
+}
+
+.v3-snippet-card {
+  transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
+}
+
+.v3-snippet-card--text {
+  border-color: rgba(110, 110, 115, 0.28);
+  background: linear-gradient(180deg, rgba(240, 240, 244, 0.6), rgba(255, 255, 255, 0.95));
+}
+
+.v3-snippet-card--code {
+  border-color: rgba(67, 93, 196, 0.3);
+  background: linear-gradient(180deg, rgba(233, 239, 255, 0.68), rgba(255, 255, 255, 0.95));
+}
+
+.v3-snippet-card--link {
+  border-color: rgba(24, 143, 105, 0.3);
+  background: linear-gradient(180deg, rgba(227, 246, 239, 0.72), rgba(255, 255, 255, 0.95));
+}
+
+.v3-snippet-card--image {
+  border-color: rgba(191, 110, 33, 0.32);
+  background: linear-gradient(180deg, rgba(255, 241, 228, 0.78), rgba(255, 255, 255, 0.95));
 }
 
 .v3-editor {

@@ -392,6 +392,10 @@ function buildCodePreview(content: string) {
   return preview;
 }
 
+function snippetTypeClass(type: SnippetType) {
+  return `v3-snippet-card--${type}`;
+}
+
 async function confirmDelete() {
   if (!deleteTarget.value) {
     return;
@@ -439,7 +443,13 @@ async function copySnippet(snippet: SnippetRecord) {
       <div class="v3-search-row">
         <div class="v3-chip-list">
           <button class="v3-chip" :class="{ active: filterType === 'all' }" @click="filterType = 'all'">全部</button>
-          <button v-for="option in typeOptions" :key="option.key" class="v3-chip" :class="{ active: filterType === option.key }" @click="filterType = option.key">
+          <button
+            v-for="option in typeOptions"
+            :key="option.key"
+            class="v3-chip"
+            :class="[{ active: filterType === option.key }, `v3-chip--${option.key}`]"
+            @click="filterType = option.key"
+          >
             {{ option.label }}
           </button>
         </div>
@@ -501,8 +511,8 @@ async function copySnippet(snippet: SnippetRecord) {
         <article
           v-for="snippet in filtered"
           :key="snippet.id"
-          class="v3-item"
-          :class="{ 'v3-highlight': highlightedId === snippet.id }"
+          class="v3-item v3-snippet-card"
+          :class="[snippetTypeClass(snippet.type), { 'v3-highlight': highlightedId === snippet.id }]"
           :data-snippet-id="snippet.id"
         >
           <div class="v3-card-head" style="margin-bottom: 6px;">
