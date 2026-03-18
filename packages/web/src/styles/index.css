@@ -1174,12 +1174,18 @@ p {
   display: grid;
   gap: 18px;
   overflow: visible;
+  isolation: isolate;
 }
 
 .nav-category-panel {
   scroll-margin-top: 90px;
   position: relative;
   overflow: visible;
+  z-index: 0;
+}
+
+.nav-category-panel:hover {
+  z-index: 30;
 }
 
 .nav-card-grid {
