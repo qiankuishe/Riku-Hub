@@ -37,6 +37,12 @@ body,
   min-height: 100vh;
 }
 
+html,
+body {
+  overflow-x: hidden;
+  min-width: 320px;
+}
+
 body {
   margin: 0;
   font-family: "SF Pro Display", "PingFang SC", "Noto Sans SC", sans-serif;
@@ -332,6 +338,9 @@ p {
 
 .app-shell {
   min-height: 100vh;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
 }
 
 .main-sidebar {
@@ -347,6 +356,8 @@ p {
   flex-direction: column;
   gap: 28px;
   overflow: hidden;
+  flex-shrink: 0;
+  z-index: 40;
 }
 
 .sidebar-brand {
@@ -491,16 +502,19 @@ p {
 
 .app-shell-main {
   margin-left: 244px;
+  flex: 1 1 0;
   min-width: 0;
   min-height: 100vh;
-  overflow-x: auto;
+  overflow-x: hidden;
   overflow-y: visible;
 }
 
 .app-shell-main-inner {
   width: 100%;
+  min-width: 0;
   min-height: 100vh;
   padding: 18px 24px 28px;
+  box-sizing: border-box;
 }
 
 .topbar {
@@ -524,10 +538,14 @@ p {
 
 .page-content {
   min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .page-shell {
   gap: 22px;
+  min-width: 0;
+  width: 100%;
 }
 
 .page-shell-compact {
@@ -542,7 +560,8 @@ p {
 
 .page-shell-wide {
   gap: 24px;
-  min-width: 1040px;
+  min-width: 0;
+  width: 100%;
 }
 
 .panel {
@@ -593,12 +612,12 @@ p {
 .settings-grid,
 .nav-hero-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
   gap: 10px;
 }
 
 .nav-hero-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
 }
 
 .metric-card,
@@ -635,8 +654,8 @@ p {
 }
 
 .settings-panel {
-  width: min(980px, 100%);
-  min-width: 980px;
+  width: 100%;
+  min-width: 0;
 }
 
 .settings-stack {
@@ -674,13 +693,13 @@ p {
 .settings-inline-grid,
 .settings-action-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
   gap: 12px;
 }
 
 .settings-stat-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
   gap: 12px;
 }
 
@@ -789,6 +808,7 @@ p {
 
 .source-main {
   min-width: 0;
+  overflow: hidden;
 }
 
 .link-item > div:first-child,
@@ -1057,7 +1077,7 @@ p {
 }
 
 .nav-card-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
 }
 
 .nav-card-grid-compact {
@@ -1154,7 +1174,7 @@ p {
 
 .notes-layout {
   display: grid;
-  grid-template-columns: 320px minmax(0, 1fr);
+  grid-template-columns: minmax(min(100%, 280px), 320px) minmax(0, 1fr);
   gap: 18px;
   align-items: start;
 }
@@ -1166,7 +1186,7 @@ p {
 
 .notes-hero-grid {
   margin-top: 4px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
 }
 
 .notes-sidebar-panel {
@@ -1367,12 +1387,12 @@ p {
 
 .clipboard-hero-grid {
   margin-top: 4px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
 }
 
 .clipboard-workspace {
   display: grid;
-  grid-template-columns: minmax(280px, 0.92fr) minmax(0, 1.38fr);
+  grid-template-columns: minmax(min(100%, 260px), 0.92fr) minmax(0, 1.38fr);
   gap: 18px;
   align-items: start;
 }
@@ -1623,17 +1643,7 @@ html.dark .clipboard-type-image {
   color: var(--text-soft);
 }
 
-@media (max-width: 1180px) {
-  .nav-hero-grid,
-  .notes-hero-grid,
-  .clipboard-hero-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .clipboard-section .snippet-grid {
-    grid-template-columns: 1fr;
-  }
-}
+/* 1180px breakpoint is now handled by auto-fill/auto-fit grids above */
 
 @keyframes pulse {
   0%,
@@ -1647,7 +1657,7 @@ html.dark .clipboard-type-image {
 
 @media (max-width: 980px) {
   .app-shell {
-    overflow: visible;
+    flex-direction: column;
   }
 
   .desktop-only {
@@ -1656,19 +1666,16 @@ html.dark .clipboard-type-image {
 
   .app-shell-main {
     margin-left: 0;
+    flex: 1 1 auto;
     min-height: auto;
-    overflow: visible;
+    overflow-x: hidden;
   }
 
   .app-shell-main-inner {
     width: 100%;
+    min-width: 0;
     min-height: auto;
     padding: 16px;
-  }
-
-  .page-shell-wide,
-  .settings-panel {
-    min-width: 0;
   }
 
   .topbar {
@@ -1693,18 +1700,8 @@ html.dark .clipboard-type-image {
   .nav-workspace,
   .notes-layout,
   .clipboard-workspace,
-  .source-editor-layout,
-  .meta-grid,
-  .settings-grid,
-  .settings-inline-grid,
-  .settings-action-grid,
-  .settings-stat-grid,
-  .nav-hero-grid {
+  .source-editor-layout {
     grid-template-columns: 1fr;
-  }
-
-  .nav-card-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .nav-search-form {
@@ -1760,6 +1757,15 @@ html.dark .clipboard-type-image {
 
 @media (max-width: 640px) {
   .nav-card-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 160px), 1fr));
+  }
+
+  .modal-card {
+    border-radius: 20px;
+    padding: 18px;
+  }
+
+  .app-shell-main-inner {
+    padding: 12px;
   }
 }
