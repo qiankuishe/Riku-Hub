@@ -10,15 +10,18 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@vueuse/integrations": "^14.2.1",
     "dompurify": "^3.3.3",
     "marked": "^17.0.4",
     "pinia": "^2.3.1",
     "qrcode": "^1.5.4",
+    "sortablejs": "^1.15.7",
     "vue": "^3.5.13",
     "vue-router": "^4.5.0"
   },
   "devDependencies": {
     "@types/qrcode": "^1.5.5",
+    "@types/sortablejs": "^1.15.9",
     "@vitejs/plugin-vue": "^5.2.1",
     "vite": "^6.2.0",
     "vitest": "^3.0.7",

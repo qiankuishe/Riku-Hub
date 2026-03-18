@@ -315,9 +315,15 @@ async function openLink(link: NavigationLink) {
           <p class="section-subtitle">统一管理分组、链接和访问记录。</p>
         </div>
         <div class="section-head-actions">
-          <UiButton v-if="isEditMode || !hasCategories" variant="secondary" @click="openCategoryDialog()">
+          <!-- 编辑模式下，左侧显示新增分类 -->
+          <UiButton v-if="isEditMode" variant="secondary" @click="openCategoryDialog()">
             新增分类
           </UiButton>
+          
+          <!-- 使用 spacer 推到右侧 -->
+          <div v-if="isEditMode" style="flex: 1"></div>
+          
+          <!-- 右侧按钮组 -->
           <UiButton v-if="isEditMode && hasCategories" variant="primary" @click="openLinkDialog()">
             新增站点
           </UiButton>

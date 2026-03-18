@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { useSortable } from '@vueuse/integrations/useSortable';
 import type { NavigationCategory, NavigationLink, NoteRecord, SnippetRecord } from '../../core/api';
 import { navigationApi, notesApi, snippetsApi } from '../../core/api';
 import { useUiStore } from '../../../src/stores/ui';
@@ -58,9 +59,6 @@ const dragSourceCategoryId = ref('');
 const dropCategoryId = ref('');
 const dropLinkId = ref('');
 const dropPlacement = ref<'before' | 'after' | ''>('');
-const draggingCategoryId = ref('');
-const dropCategoryCardId = ref('');
-const dropCategoryPlacement = ref<'before' | 'after' | ''>('');
 
 const overviewSectionId = 'v3-nav-overview';
 
@@ -81,6 +79,32 @@ const recentLinks = computed(() =>
     .sort((a, b) => (b.lastVisitedAt ?? '').localeCompare(a.lastVisitedAt ?? ''))
     .slice(0, 8)
 );
+
+// 分类拖拽排序
+const categoryListRef = ref<HTMLElement | null>(null);
+
+useSortable(categoryListRef, categories, {
+  animation: 200,
+  handle: '.v3-category-drag-handle',
+  ghostClass: 'v3-category-ghost',
+  chosenClass: 'v3-category-chosen',
+  dragClass: 'v3-category-drag',
+  disabled: computed(() => !editMode.value),
+  onEnd: async (event) => {
+    if (event.oldIndex === event.newIndex || event.oldIndex === undefined || event.newIndex === undefined) {
+      return;
+    }
+    
+    try {
+      const ids = categories.value.map((c) => c.id);
+      await navigationApi.reorderCategories(ids);
+      uiStore.showToast('分类顺序已更新');
+    } catch (error) {
+      uiStore.showToast('排序更新失败');
+      await loadAll();
+    }
+  },
+});
 
 watch(
   [categories, selectedCategoryId],
@@ -476,69 +500,6 @@ async function performLinkDrop(targetCategoryId: string, targetLinkId: string | 
     onLinkDragEnd();
   }
 }
-
-function onCategoryCardDragStart(event: DragEvent, categoryId: string) {
-  if (!editMode.value) {
-    return;
-  }
-  draggingCategoryId.value = categoryId;
-  dropCategoryCardId.value = '';
-  dropCategoryPlacement.value = '';
-  event.dataTransfer?.setData('text/plain', categoryId);
-  event.dataTransfer!.effectAllowed = 'move';
-}
-
-function onCategoryCardDragEnd() {
-  draggingCategoryId.value = '';
-  dropCategoryCardId.value = '';
-  dropCategoryPlacement.value = '';
-}
-
-function onCategoryCardDragOver(event: DragEvent, categoryId: string) {
-  if (!editMode.value || !draggingCategoryId.value || draggingCategoryId.value === categoryId) {
-    return;
-  }
-  const element = event.currentTarget as HTMLElement | null;
-  const rect = element?.getBoundingClientRect();
-  const after = rect ? event.clientY - rect.top > rect.height / 2 : false;
-  dropCategoryCardId.value = categoryId;
-  dropCategoryPlacement.value = after ? 'after' : 'before';
-}
-
-async function onCategoryCardDrop(event: DragEvent, categoryId: string) {
-  if (!editMode.value) {
-    return;
-  }
-  const sourceCategoryId = draggingCategoryId.value;
-  if (!sourceCategoryId || sourceCategoryId === categoryId) {
-    onCategoryCardDragEnd();
-    return;
-  }
-
-  const ids = categories.value.map((category) => category.id).filter((id) => id !== sourceCategoryId);
-  const targetIndex = ids.indexOf(categoryId);
-  if (targetIndex < 0) {
-    onCategoryCardDragEnd();
-    return;
-  }
-
-  const element = event.currentTarget as HTMLElement | null;
-  const rect = element?.getBoundingClientRect();
-  const after = rect ? event.clientY - rect.top > rect.height / 2 : dropCategoryPlacement.value === 'after';
-  const insertIndex = Math.max(0, targetIndex + (after ? 1 : 0));
-  ids.splice(insertIndex, 0, sourceCategoryId);
-
-  try {
-    await navigationApi.reorderCategories(ids);
-    uiStore.showToast('分类顺序已更新');
-    await loadAll();
-  } catch (error) {
-    uiStore.showToast(error instanceof Error ? error.message : '分类排序更新失败');
-    await loadAll();
-  } finally {
-    onCategoryCardDragEnd();
-  }
-}
 </script>
 
 <template>
@@ -615,7 +576,7 @@ async function onCategoryCardDrop(event: DragEvent, categoryId: string) {
       暂无分类。点击“新增分类”开始创建。
     </section>
 
-    <template v-else>
+    <div v-else ref="categoryListRef" class="v3-category-list">
       <CategoryDropZone
         v-for="category in categories"
         :key="category.id"
@@ -624,15 +585,8 @@ async function onCategoryCardDrop(event: DragEvent, categoryId: string) {
         @drop="onCategoryDropZone($event, category.id)"
       >
         <section
-          class="v3-card"
-          :class="{
-            'v3-category-card-dragging': draggingCategoryId === category.id,
-            'v3-category-card-drop-before': dropCategoryCardId === category.id && dropCategoryPlacement === 'before',
-            'v3-category-card-drop-after': dropCategoryCardId === category.id && dropCategoryPlacement === 'after'
-          }"
+          class="v3-card v3-category-item"
           :id="getCategorySectionId(category.id)"
-          @dragover.prevent="onCategoryCardDragOver($event, category.id)"
-          @drop.prevent="onCategoryCardDrop($event, category.id)"
         >
           <div class="v3-card-head">
             <div>
@@ -645,9 +599,6 @@ async function onCategoryCardDrop(event: DragEvent, categoryId: string) {
                 class="v3-category-drag-handle"
                 type="button"
                 title="拖拽排序分类"
-                draggable="true"
-                @dragstart="onCategoryCardDragStart($event, category.id)"
-                @dragend="onCategoryCardDragEnd"
               >
                 <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                   <path d="M9 3h2v2H9V3zm0 4h2v2H9V7zm0 4h2v2H9v-2zm0 4h2v2H9v-2zm0 4h2v2H9v-2zm4-16h2v2h-2V3zm0 4h2v2h-2V7zm0 4h2v2h-2v-2zm0 4h2v2h-2v-2zm0 4h2v2h-2v-2z"/>
@@ -687,7 +638,7 @@ async function onCategoryCardDrop(event: DragEvent, categoryId: string) {
           </div>
         </section>
       </CategoryDropZone>
-    </template>
+    </div>
 
     <UiDialog
       :open="categoryDialogVisible"
