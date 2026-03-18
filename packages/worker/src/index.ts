@@ -929,54 +929,35 @@ async function requireSession(env: Env, request: Request): Promise<{ username: s
     return null;
   }
 
-  if (hasD1(env)) {
-    const row = await env.DB.prepare(
-      'SELECT token, username, created_at, expires_at FROM auth_sessions WHERE token = ?'
-    )
-      .bind(token)
-      .first<SessionRow>();
-    if (!row) {
-      return null;
-    }
-    if (row.expires_at <= Date.now()) {
-      await deleteSession(env, token);
-      return null;
-    }
-    return { username: row.username };
-  }
-
-  const raw = await env.APP_KV.get(sessionKey(token), 'json');
-  if (!raw || typeof raw !== 'object') {
+  const db = getDatabase(env);
+  const row = await db
+    .prepare('SELECT token, username, created_at, expires_at FROM auth_sessions WHERE token = ?')
+    .bind(token)
+    .first<SessionRow>();
+  if (!row) {
     return null;
   }
-  return raw as { username: string };
+  if (row.expires_at <= Date.now()) {
+    await deleteSession(env, token);
+    return null;
+  }
+  return { username: row.username };
 }
 
 async function createSession(env: Env, username: string): Promise<string> {
   const token = randomToken();
-  if (hasD1(env)) {
-    const now = Date.now();
-    await env.DB.prepare(
-      'INSERT INTO auth_sessions (token, username, created_at, expires_at) VALUES (?, ?, ?, ?)'
-    )
-      .bind(token, username, now, now + SESSION_TTL_SECONDS * 1000)
-      .run();
-    return token;
-  }
-
-  await env.APP_KV.put(sessionKey(token), JSON.stringify({ username, createdAt: Date.now() }), {
-    expirationTtl: SESSION_TTL_SECONDS
-  });
+  const db = getDatabase(env);
+  const now = Date.now();
+  await db
+    .prepare('INSERT INTO auth_sessions (token, username, created_at, expires_at) VALUES (?, ?, ?, ?)')
+    .bind(token, username, now, now + SESSION_TTL_SECONDS * 1000)
+    .run();
   return token;
 }
 
 async function deleteSession(env: Env, token: string): Promise<void> {
-  if (hasD1(env)) {
-    await env.DB.prepare('DELETE FROM auth_sessions WHERE token = ?').bind(token).run();
-    return;
-  }
-
-  await env.APP_KV.delete(sessionKey(token));
+  const db = getDatabase(env);
+  await db.prepare('DELETE FROM auth_sessions WHERE token = ?').bind(token).run();
 }
 
 function sessionKey(token: string): string {
@@ -988,43 +969,33 @@ function loginAttemptKey(ip: string): string {
 }
 
 async function getLoginAttempt(env: Env, ip: string): Promise<LoginAttemptState | null> {
-  if (hasD1(env)) {
-    const row = await env.DB.prepare(
+  const db = getDatabase(env);
+  const row = await db
+    .prepare(
       `SELECT ip, count, last_attempt, locked_until, lock_level, expires_at
        FROM login_attempts
        WHERE ip = ?`
     )
-      .bind(ip)
-      .first<LoginAttemptRow>();
-    if (!row) {
-      return null;
-    }
-    if (row.expires_at <= Date.now()) {
-      await clearLoginAttempt(env, ip);
-      return null;
-    }
-    return {
-      count: row.count,
-      lastAttempt: row.last_attempt,
-      lockedUntil: row.locked_until,
-      lockLevel: row.lock_level
-    };
-  }
-
-  const data = await env.APP_KV.get(loginAttemptKey(ip), 'json');
-  if (!data || typeof data !== 'object') {
+    .bind(ip)
+    .first<LoginAttemptRow>();
+  if (!row) {
     return null;
   }
-  return data as LoginAttemptState;
+  if (row.expires_at <= Date.now()) {
+    await clearLoginAttempt(env, ip);
+    return null;
+  }
+  return {
+    count: row.count,
+    lastAttempt: row.last_attempt,
+    lockedUntil: row.locked_until,
+    lockLevel: row.lock_level
+  };
 }
 
 async function clearLoginAttempt(env: Env, ip: string): Promise<void> {
-  if (hasD1(env)) {
-    await env.DB.prepare('DELETE FROM login_attempts WHERE ip = ?').bind(ip).run();
-    return;
-  }
-
-  await env.APP_KV.delete(loginAttemptKey(ip));
+  const db = getDatabase(env);
+  await db.prepare('DELETE FROM login_attempts WHERE ip = ?').bind(ip).run();
 }
 
 function getLockConfig(level: number): { attempts: number; durationMs: number } {
@@ -1060,8 +1031,9 @@ async function recordFailedAttempt(env: Env, ip: string, existing: LoginAttemptS
     state.lockedUntil = now + lockConfig.durationMs;
   }
 
-  if (hasD1(env)) {
-    await env.DB.prepare(
+  const db = getDatabase(env);
+  await db
+    .prepare(
       `INSERT INTO login_attempts (ip, count, last_attempt, locked_until, lock_level, expires_at)
        VALUES (?, ?, ?, ?, ?, ?)
        ON CONFLICT(ip) DO UPDATE SET
@@ -1071,12 +1043,8 @@ async function recordFailedAttempt(env: Env, ip: string, existing: LoginAttemptS
          lock_level = excluded.lock_level,
          expires_at = excluded.expires_at`
     )
-      .bind(ip, state.count, state.lastAttempt, state.lockedUntil, state.lockLevel, now + SESSION_TTL_SECONDS * 1000)
-      .run();
-    return state;
-  }
-
-  await env.APP_KV.put(loginAttemptKey(ip), JSON.stringify(state), { expirationTtl: SESSION_TTL_SECONDS });
+    .bind(ip, state.count, state.lastAttempt, state.lockedUntil, state.lockLevel, now + SESSION_TTL_SECONDS * 1000)
+    .run();
   return state;
 }
 
@@ -2731,29 +2699,30 @@ function hasD1(env: Env): env is Env & { DB: D1Database } {
 }
 
 async function getAppMetaValue(env: Env, key: string): Promise<string | null> {
-  if (hasD1(env)) {
-    const row = await env.DB.prepare('SELECT value FROM app_meta WHERE key = ?').bind(key).first<{ value: string }>();
-    return row?.value ?? null;
-  }
-
-  return env.APP_KV.get(key);
+  const db = getDatabase(env);
+  const row = await db.prepare('SELECT value FROM app_meta WHERE key = ?').bind(key).first<{ value: string }>();
+  return row?.value ?? null;
 }
 
 async function setAppMetaValue(env: Env, key: string, value: string): Promise<void> {
-  if (hasD1(env)) {
-    await env.DB.prepare(
+  const db = getDatabase(env);
+  await db
+    .prepare(
       `INSERT INTO app_meta (key, value, updated_at)
        VALUES (?, ?, ?)
        ON CONFLICT(key) DO UPDATE SET
          value = excluded.value,
          updated_at = excluded.updated_at`
     )
-      .bind(key, value, new Date().toISOString())
-      .run();
-    return;
-  }
+    .bind(key, value, new Date().toISOString())
+    .run();
+}
 
-  await env.APP_KV.put(key, value);
+function getDatabase(env: Env): D1Database {
+  if (!env.DB) {
+    throw new Error('DB binding is missing. Connect your D1 database to the `DB` binding in Cloudflare Dashboard.');
+  }
+  return env.DB;
 }
 
 function mapNavigationCategoryRow(row: NavigationCategoryRow): NavigationCategoryRecord {
