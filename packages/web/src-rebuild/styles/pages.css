@@ -44,15 +44,6 @@
   width: 100%;
 }
 
-.v3-nav-head-actions-right {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-left: auto;
-  flex-wrap: wrap;
-}
-
 .v3-link-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));

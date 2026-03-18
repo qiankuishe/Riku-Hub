@@ -484,14 +484,12 @@ async function performLinkDrop(targetCategoryId: string, targetLinkId: string | 
           <p class="v3-muted">完整迁移导航体验，保留当前侧边栏机制。</p>
         </div>
         <div class="v3-nav-head-actions">
-          <UiButton v-if="editMode || !hasCategories" variant="secondary" @click="openCategoryDialog()">新增分类</UiButton>
-          <div class="v3-nav-head-actions-right">
-            <UiButton v-if="editMode && hasCategories" variant="primary" @click="openLinkDialog()">新增站点</UiButton>
-            <UiButton variant="tertiary" @click="editMode = !editMode">
-              {{ editMode ? '完成编辑' : '进入编辑' }}
-            </UiButton>
-            <UiButton variant="tertiary" :disabled="loading" @click="loadAll">刷新</UiButton>
-          </div>
+          <UiButton v-if="editMode" variant="secondary" @click="openCategoryDialog()">新增分类</UiButton>
+          <div v-if="editMode" style="flex: 1;" />
+          <UiButton v-if="editMode && hasCategories" variant="primary" @click="openLinkDialog()">新增站点</UiButton>
+          <UiButton variant="tertiary" @click="editMode = !editMode">
+            {{ editMode ? '完成编辑' : '进入编辑' }}
+          </UiButton>
         </div>
       </div>
 
