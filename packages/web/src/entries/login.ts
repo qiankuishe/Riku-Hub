@@ -1,4 +1,4 @@
-import LoginView from '../views/auth/LoginView.vue';
-import { mountLoginPage } from '../bootstrap/mountPage';
+import LoginPage from '../../src-rebuild/pages/auth/LoginPage.vue';
+import { mountLoginPage } from '../../src-rebuild/core/mount';
 
-void mountLoginPage(LoginView);
+void mountLoginPage(LoginPage);

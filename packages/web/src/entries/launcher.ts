@@ -1,3 +1,3 @@
-import { mountLauncherPage } from '../bootstrap/mountPage';
+import { mountLauncherPage } from '../../src-rebuild/core/mount';
 
 mountLauncherPage();

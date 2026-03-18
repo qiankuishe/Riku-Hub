@@ -1,8 +1,8 @@
-import { mountProtectedPage } from '../bootstrap/mountPage';
-import NavigationView from '../views/navigation/NavigationView.vue';
+import { mountProtectedPage } from '../../src-rebuild/core/mount';
+import NavigationPage from '../../src-rebuild/pages/navigation/NavigationPage.vue';
 
 void mountProtectedPage({
-  component: NavigationView,
+  component: NavigationPage,
   currentPath: '/nav',
   title: '网站导航'
 });

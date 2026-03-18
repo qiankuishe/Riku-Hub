@@ -1,8 +1,8 @@
-import { mountProtectedPage } from '../bootstrap/mountPage';
-import SettingsView from '../views/settings/SettingsView.vue';
+import { mountProtectedPage } from '../../src-rebuild/core/mount';
+import SettingsPage from '../../src-rebuild/pages/settings/SettingsPage.vue';
 
 void mountProtectedPage({
-  component: SettingsView,
+  component: SettingsPage,
   currentPath: '/settings',
   title: '系统设置'
 });

@@ -1,8 +1,8 @@
-import { mountProtectedPage } from '../bootstrap/mountPage';
-import NotesView from '../views/notes/NotesView.vue';
+import { mountProtectedPage } from '../../src-rebuild/core/mount';
+import NotesPage from '../../src-rebuild/pages/notes/NotesPage.vue';
 
 void mountProtectedPage({
-  component: NotesView,
+  component: NotesPage,
   currentPath: '/notes',
   title: '笔记'
 });

@@ -1,8 +1,8 @@
-import { mountProtectedPage } from '../bootstrap/mountPage';
-import SubscriptionsView from '../views/subscriptions/SubscriptionsView.vue';
+import { mountProtectedPage } from '../../src-rebuild/core/mount';
+import SubscriptionsPage from '../../src-rebuild/pages/subscriptions/SubscriptionsPage.vue';
 
 void mountProtectedPage({
-  component: SubscriptionsView,
+  component: SubscriptionsPage,
   currentPath: '/subscriptions',
   title: '订阅聚合'
 });

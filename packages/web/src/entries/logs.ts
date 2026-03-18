@@ -1,8 +1,8 @@
-import { mountProtectedPage } from '../bootstrap/mountPage';
-import LogsView from '../views/logs/LogsView.vue';
+import { mountProtectedPage } from '../../src-rebuild/core/mount';
+import LogsPage from '../../src-rebuild/pages/logs/LogsPage.vue';
 
 void mountProtectedPage({
-  component: LogsView,
+  component: LogsPage,
   currentPath: '/logs',
   title: '运行日志'
 });

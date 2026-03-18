@@ -1,0 +1,212 @@
+.ui-button,
+.primary,
+.ghost,
+.danger-fill {
+  border: 1px solid transparent;
+  border-radius: var(--rk-radius-sm);
+  min-height: 36px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 520;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.ui-button--sm,
+.small {
+  min-height: 30px;
+  padding: 0 11px;
+  font-size: 13px;
+}
+
+.ui-button--md {
+  min-height: 36px;
+  padding: 0 14px;
+}
+
+.ui-button--lg {
+  min-height: 42px;
+  padding: 0 16px;
+}
+
+.ui-button--block {
+  width: 100%;
+}
+
+.ui-button--primary,
+.primary {
+  background: var(--rk-brand);
+  border-color: var(--rk-brand);
+  color: #fff;
+}
+
+.ui-button--primary:hover,
+.primary:hover {
+  background: var(--rk-brand-strong);
+  border-color: var(--rk-brand-strong);
+}
+
+.ui-button--secondary {
+  background: var(--rk-surface);
+  border-color: var(--rk-border);
+  color: var(--rk-text);
+}
+
+.ui-button--secondary:hover {
+  background: var(--rk-surface-soft);
+}
+
+.ui-button--tertiary,
+.ghost {
+  background: transparent;
+  border-color: var(--rk-border);
+  color: var(--rk-text);
+}
+
+.ui-button--tertiary:hover,
+.ghost:hover {
+  background: var(--rk-surface-soft);
+}
+
+.ui-button--danger,
+.danger-fill {
+  background: var(--rk-danger);
+  border-color: var(--rk-danger);
+  color: #fff;
+}
+
+.ui-button--danger:hover,
+.danger-fill:hover {
+  filter: brightness(0.95);
+}
+
+.ui-button:disabled,
+.primary:disabled,
+.ghost:disabled,
+.danger-fill:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ui-field {
+  display: grid;
+  gap: 6px;
+}
+
+.ui-field__label {
+  font-size: 13px;
+  color: var(--rk-text-soft);
+}
+
+.ui-field__control :is(input, textarea, select) {
+  width: 100%;
+  border: 1px solid var(--rk-border);
+  border-radius: var(--rk-radius-sm);
+  background: var(--rk-surface);
+  color: var(--rk-text);
+  padding: 10px 12px;
+  outline: none;
+}
+
+.ui-field__control :is(input, textarea, select):focus {
+  border-color: var(--rk-brand);
+  box-shadow: 0 0 0 3px rgba(123, 68, 26, 0.15);
+}
+
+.ui-field__help {
+  font-size: 12px;
+  color: var(--rk-text-soft);
+}
+
+.ui-field__error {
+  font-size: 12px;
+  color: var(--rk-danger);
+}
+
+.ui-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.42);
+}
+
+.ui-dialog {
+  width: min(100%, 520px);
+  border: 1px solid var(--rk-border);
+  border-radius: var(--rk-radius-lg);
+  background: var(--rk-surface);
+  box-shadow: var(--rk-shadow);
+  padding: 18px;
+  display: grid;
+  gap: 14px;
+}
+
+.ui-dialog--sm {
+  max-width: 420px;
+}
+
+.ui-dialog--md {
+  max-width: 520px;
+}
+
+.ui-dialog--lg {
+  max-width: 720px;
+}
+
+.ui-dialog__header {
+  display: grid;
+  gap: 6px;
+}
+
+.ui-dialog__header h2 {
+  font-size: 18px;
+}
+
+.ui-dialog__header p {
+  font-size: 13px;
+  color: var(--rk-text-soft);
+}
+
+.ui-dialog__body {
+  display: grid;
+  gap: 12px;
+}
+
+.ui-dialog__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.ui-empty-state {
+  border: 1px dashed var(--rk-border);
+  border-radius: var(--rk-radius-md);
+  background: var(--rk-surface-soft);
+  padding: 20px;
+  text-align: center;
+  color: var(--rk-text-soft);
+}
+
+.ui-empty-state strong {
+  color: var(--rk-text);
+  display: block;
+  margin-bottom: 6px;
+}
+
+.panel {
+  border: 1px solid var(--rk-border);
+  border-radius: var(--rk-radius-md);
+  background: var(--rk-surface);
+  box-shadow: var(--rk-shadow);
+}
+
+.small-tip {
+  font-size: 12px;
+  color: var(--rk-text-soft);
+}
