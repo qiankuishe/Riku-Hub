@@ -34,6 +34,19 @@ function setNavRef(element: unknown) {
   navRef.value = element instanceof HTMLElement ? element : null;
 }
 
+function handleNavWheel(event: WheelEvent) {
+  const nav = navRef.value;
+  if (!nav) {
+    return;
+  }
+  const canScroll = nav.scrollHeight > nav.clientHeight;
+  if (!canScroll) {
+    return;
+  }
+  event.preventDefault();
+  nav.scrollTop += event.deltaY;
+}
+
 async function revealGroup(itemTo: string) {
   await nextTick();
   const nav = navRef.value;
@@ -110,7 +123,7 @@ watch(
           <button class="ghost small" @click="emit('close')">收起</button>
         </div>
 
-        <nav :ref="setNavRef" class="sidebar-nav">
+        <nav :ref="setNavRef" class="sidebar-nav" @wheel="handleNavWheel">
           <div
             v-for="item in APP_NAV_ITEMS"
             :key="item.to"

@@ -67,6 +67,13 @@ const typeCounts = computed(() => ({
   link: snippets.value.filter((snippet) => snippet.type === 'link').length,
   image: snippets.value.filter((snippet) => snippet.type === 'image').length
 }));
+const draftSizeText = computed(() => {
+  if (draftType.value === 'image') {
+    const approxBytes = Math.floor((draftContent.value.length * 3) / 4);
+    return formatBytes(Math.max(0, approxBytes));
+  }
+  return `${draftContent.value.trim().length} 字`;
+});
 
 watch(
   () => [filterType.value, snippets.value.length, typeCounts.value.text, typeCounts.value.code, typeCounts.value.link, typeCounts.value.image],
@@ -454,8 +461,16 @@ async function copySnippet(snippet: SnippetRecord) {
           <input v-model="draftTitle" placeholder="可选，留空自动生成" />
         </UiField>
       </div>
-      <UiField label="内容" :error="draftError" style="margin-top: 12px;">
-        <textarea v-model="draftContent" rows="6" :placeholder="draftType === 'image' ? '可读取剪贴板图片' : '输入内容'" />
+      <UiField v-if="draftType !== 'image'" label="内容" :error="draftError" style="margin-top: 12px;">
+        <textarea v-model="draftContent" rows="6" placeholder="输入内容" />
+      </UiField>
+      <UiField v-else label="图片内容" :error="draftError" style="margin-top: 12px;">
+        <div class="v3-item">
+          <div v-if="draftContent">
+            <img :src="draftContent" alt="draft" style="max-height: 220px; max-width: 100%; border-radius: 10px;" />
+          </div>
+          <p v-else class="v3-muted">未选择图片，可读取剪贴板或上传图片。</p>
+        </div>
       </UiField>
       <div class="v3-inline-actions" style="margin-top: 10px;">
         <UiButton variant="secondary" :disabled="clipboardBusy !== 'idle'" @click="readClipboardText">
@@ -469,8 +484,7 @@ async function copySnippet(snippet: SnippetRecord) {
       </div>
       <input ref="imageUploadInput" type="file" accept="image/*" style="display: none;" @change="handleImageUpload" />
       <p class="v3-muted" style="margin-top: 8px;">
-        当前内容大小：
-        {{ draftType === 'image' ? formatBytes(new TextEncoder().encode(draftContent).byteLength) : `${draftContent.trim().length} 字` }}
+        当前内容大小：{{ draftSizeText }}
       </p>
     </section>
 
@@ -537,7 +551,13 @@ async function copySnippet(snippet: SnippetRecord) {
         <input v-model="editTitle" />
       </UiField>
       <UiField label="内容">
-        <textarea v-model="editContent" rows="8" />
+        <textarea v-if="editType !== 'image'" v-model="editContent" rows="8" />
+        <div v-else class="v3-item">
+          <div v-if="editContent">
+            <img :src="editContent" alt="snippet-preview" style="max-height: 220px; max-width: 100%; border-radius: 10px;" />
+          </div>
+          <p v-else class="v3-muted">暂无图片内容</p>
+        </div>
       </UiField>
     </UiDialog>
 
