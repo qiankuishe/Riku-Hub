@@ -21,5 +21,12 @@ binding = "CACHE_KV"
 id = "ebe4ea790cdb40f2b8fd6c438700e889"
 preview_id = "ebe4ea790cdb40f2b8fd6c438700e889"
 
+# To enable D1 for high-write app data, create a database and bind it as `DB`,
+# then apply the SQL files under `./migrations`.
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "qiankui-sub-cf-db"
+# database_id = "replace-with-your-d1-database-id"
+
 [triggers]
 crons = ["0 * * * *"]

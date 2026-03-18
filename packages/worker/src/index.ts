@@ -24,6 +24,7 @@ import {
 export interface Env {
   APP_KV: KVNamespace;
   CACHE_KV: KVNamespace;
+  DB?: D1Database;
   ASSETS?: Fetcher;
   ADMIN_USERNAME?: string;
   ADMIN_PASSWORD_HASH?: string;
@@ -106,6 +107,53 @@ interface SettingsBackupPayload {
   notes?: NoteRecord[];
   snippets?: SnippetRecord[];
   clipboard_items?: SnippetRecord[];
+}
+
+interface NavigationCategoryRow {
+  id: string;
+  name: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+interface NavigationLinkRow {
+  id: string;
+  category_id: string;
+  title: string;
+  url: string;
+  description: string;
+  sort_order: number;
+  visit_count: number;
+  last_visited_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface NoteRow {
+  id: string;
+  title: string;
+  content: string;
+  is_pinned: number;
+  created_at: string;
+  updated_at: string;
+}
+
+interface SnippetRow {
+  id: string;
+  type: SnippetType;
+  title: string;
+  content: string;
+  is_pinned: number;
+  created_at: string;
+  updated_at: string;
+}
+
+interface LogRow {
+  id: string;
+  action: string;
+  detail: string | null;
+  created_at: string;
 }
 
 const app = new Hono<Bindings>();
@@ -1496,6 +1544,23 @@ async function getCachedFormat(env: Env, format: OutputFormat): Promise<CachedFo
 
 async function appendLog(env: Env, action: string, detail?: string): Promise<void> {
   try {
+    if (hasD1(env)) {
+      await env.DB.prepare(
+        'INSERT INTO app_logs (id, action, detail, created_at) VALUES (?, ?, ?, ?)'
+      )
+        .bind(randomToken(6), action, detail ?? null, new Date().toISOString())
+        .run();
+      await env.DB.prepare(
+        `DELETE FROM app_logs
+         WHERE id NOT IN (
+           SELECT id FROM app_logs ORDER BY created_at DESC LIMIT ?
+         )`
+      )
+        .bind(getMaxLogEntries(env))
+        .run();
+      return;
+    }
+
     const logs = await getLogs(env);
     const next: LogRecord = {
       id: randomToken(6),
@@ -1511,6 +1576,15 @@ async function appendLog(env: Env, action: string, detail?: string): Promise<voi
 }
 
 async function getLogs(env: Env): Promise<LogRecord[]> {
+  if (hasD1(env)) {
+    const result = await env.DB.prepare(
+      'SELECT id, action, detail, created_at FROM app_logs ORDER BY created_at DESC LIMIT ?'
+    )
+      .bind(getMaxLogEntries(env))
+      .all<LogRow>();
+    return (result.results ?? []).map(mapLogRow);
+  }
+
   const logs = await env.APP_KV.get(APP_KEYS.logsRecent, 'json');
   return Array.isArray(logs) ? (logs.filter((log): log is LogRecord => Boolean(log && typeof log === 'object')) as LogRecord[]) : [];
 }
@@ -1521,8 +1595,8 @@ async function ensureNavigationSeeded(env: Env): Promise<void> {
     return;
   }
 
-  const existingIds = await getNavigationCategoryIndex(env);
-  if (existingIds.length > 0) {
+  const existingCount = await getNavigationCategoryCount(env);
+  if (existingCount > 0) {
     await env.APP_KV.put(APP_KEYS.navigationSeeded, '1');
     return;
   }
@@ -1567,6 +1641,15 @@ async function ensureNavigationSeeded(env: Env): Promise<void> {
   await env.APP_KV.put(APP_KEYS.navigationSeeded, '1');
 }
 
+async function getNavigationCategoryCount(env: Env): Promise<number> {
+  if (hasD1(env)) {
+    const row = await env.DB.prepare('SELECT COUNT(*) AS count FROM navigation_categories').first<{ count: number }>();
+    return Number(row?.count ?? 0);
+  }
+
+  return (await getNavigationCategoryIndex(env)).length;
+}
+
 async function getNavigationTree(env: Env): Promise<NavigationCategoryPayload[]> {
   await ensureNavigationSeeded(env);
   const categories = await getNavigationCategories(env);
@@ -1579,12 +1662,28 @@ async function getNavigationTree(env: Env): Promise<NavigationCategoryPayload[]>
 }
 
 async function getNavigationCategory(env: Env, id: string): Promise<NavigationCategoryRecord | null> {
+  if (hasD1(env)) {
+    const row = await env.DB.prepare(
+      'SELECT id, name, sort_order, created_at, updated_at FROM navigation_categories WHERE id = ?'
+    )
+      .bind(id)
+      .first<NavigationCategoryRow>();
+    return row ? mapNavigationCategoryRow(row) : null;
+  }
+
   const category = await env.APP_KV.get(`nav:category:${id}`, 'json');
   return category as NavigationCategoryRecord | null;
 }
 
 async function getNavigationCategories(env: Env): Promise<NavigationCategoryRecord[]> {
   await ensureNavigationSeeded(env);
+  if (hasD1(env)) {
+    const result = await env.DB.prepare(
+      'SELECT id, name, sort_order, created_at, updated_at FROM navigation_categories ORDER BY sort_order ASC'
+    ).all<NavigationCategoryRow>();
+    return (result.results ?? []).map(mapNavigationCategoryRow);
+  }
+
   const ids = await getNavigationCategoryIndex(env);
   const categories = await Promise.all(ids.map((id) => getNavigationCategory(env, id)));
   return categories.filter((category): category is NavigationCategoryRecord => Boolean(category)).sort((a, b) => a.sortOrder - b.sortOrder);
@@ -1600,30 +1699,51 @@ async function saveNavigationCategoryIndex(env: Env, ids: string[]): Promise<voi
 }
 
 async function saveNavigationCategory(env: Env, category: NavigationCategoryRecord): Promise<NavigationCategoryRecord> {
+  if (hasD1(env)) {
+    await env.DB.prepare(
+      `INSERT INTO navigation_categories (id, name, sort_order, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         name = excluded.name,
+         sort_order = excluded.sort_order,
+         created_at = excluded.created_at,
+         updated_at = excluded.updated_at`
+    )
+      .bind(category.id, category.name, category.sortOrder, category.createdAt, category.updatedAt)
+      .run();
+    return category;
+  }
+
   await env.APP_KV.put(`nav:category:${category.id}`, JSON.stringify(category));
   return category;
 }
 
 async function createNavigationCategory(env: Env, name: string): Promise<NavigationCategoryRecord> {
   await ensureNavigationSeeded(env);
-  const ids = await getNavigationCategoryIndex(env);
+  const categories = await getNavigationCategories(env);
   const now = new Date().toISOString();
   const category: NavigationCategoryRecord = {
     id: randomToken(8),
     name,
-    sortOrder: ids.length,
+    sortOrder: categories.length,
     createdAt: now,
     updatedAt: now
   };
   await saveNavigationCategory(env, category);
+  if (hasD1(env)) {
+    return category;
+  }
+  const ids = await getNavigationCategoryIndex(env);
   await saveNavigationCategoryIndex(env, [...ids, category.id]);
   await saveNavigationLinkIndex(env, category.id, []);
   return category;
 }
 
 async function reorderNavigationCategories(env: Env, ids: string[]): Promise<NavigationCategoryRecord[]> {
-  await saveNavigationCategoryIndex(env, ids);
   const now = new Date().toISOString();
+  if (!hasD1(env)) {
+    await saveNavigationCategoryIndex(env, ids);
+  }
   const categories = await Promise.all(
     ids.map(async (id, index) => {
       const category = await getNavigationCategory(env, id);
@@ -1641,6 +1761,11 @@ async function reorderNavigationCategories(env: Env, ids: string[]): Promise<Nav
 }
 
 async function deleteNavigationCategory(env: Env, categoryId: string): Promise<void> {
+  if (hasD1(env)) {
+    await env.DB.prepare('DELETE FROM navigation_categories WHERE id = ?').bind(categoryId).run();
+    return;
+  }
+
   const linkIds = await getNavigationLinkIndex(env, categoryId);
   await Promise.all(linkIds.map((id) => env.APP_KV.delete(`nav:link:${id}`)));
   await env.APP_KV.delete(`nav:link:index:${categoryId}`);
@@ -1651,6 +1776,17 @@ async function deleteNavigationCategory(env: Env, categoryId: string): Promise<v
 }
 
 async function getNavigationLink(env: Env, id: string): Promise<NavigationLinkRecord | null> {
+  if (hasD1(env)) {
+    const row = await env.DB.prepare(
+      `SELECT id, category_id, title, url, description, sort_order, visit_count, last_visited_at, created_at, updated_at
+       FROM navigation_links
+       WHERE id = ?`
+    )
+      .bind(id)
+      .first<NavigationLinkRow>();
+    return row ? mapNavigationLinkRow(row) : null;
+  }
+
   const link = await env.APP_KV.get(`nav:link:${id}`, 'json');
   if (!link) {
     return null;
@@ -1681,11 +1817,55 @@ async function saveNavigationLinkIndex(env: Env, categoryId: string, ids: string
 }
 
 async function saveNavigationLink(env: Env, link: NavigationLinkRecord): Promise<NavigationLinkRecord> {
+  if (hasD1(env)) {
+    await env.DB.prepare(
+      `INSERT INTO navigation_links
+       (id, category_id, title, url, description, sort_order, visit_count, last_visited_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         category_id = excluded.category_id,
+         title = excluded.title,
+         url = excluded.url,
+         description = excluded.description,
+         sort_order = excluded.sort_order,
+         visit_count = excluded.visit_count,
+         last_visited_at = excluded.last_visited_at,
+         created_at = excluded.created_at,
+         updated_at = excluded.updated_at`
+    )
+      .bind(
+        link.id,
+        link.categoryId,
+        link.title,
+        link.url,
+        link.description,
+        link.sortOrder,
+        link.visitCount,
+        link.lastVisitedAt,
+        link.createdAt,
+        link.updatedAt
+      )
+      .run();
+    return link;
+  }
+
   await env.APP_KV.put(`nav:link:${link.id}`, JSON.stringify(link));
   return link;
 }
 
 async function getNavigationLinksByCategory(env: Env, categoryId: string): Promise<NavigationLinkRecord[]> {
+  if (hasD1(env)) {
+    const result = await env.DB.prepare(
+      `SELECT id, category_id, title, url, description, sort_order, visit_count, last_visited_at, created_at, updated_at
+       FROM navigation_links
+       WHERE category_id = ?
+       ORDER BY sort_order ASC`
+    )
+      .bind(categoryId)
+      .all<NavigationLinkRow>();
+    return (result.results ?? []).map(mapNavigationLinkRow);
+  }
+
   const ids = await getNavigationLinkIndex(env, categoryId);
   const links = await Promise.all(ids.map((id) => getNavigationLink(env, id)));
   return links.filter((link): link is NavigationLinkRecord => Boolean(link)).sort((a, b) => a.sortOrder - b.sortOrder);
@@ -1695,7 +1875,7 @@ async function createNavigationLink(
   env: Env,
   payload: Pick<NavigationLinkRecord, 'categoryId' | 'title' | 'url' | 'description'>
 ): Promise<NavigationLinkRecord> {
-  const ids = await getNavigationLinkIndex(env, payload.categoryId);
+  const links = await getNavigationLinksByCategory(env, payload.categoryId);
   const now = new Date().toISOString();
   const link: NavigationLinkRecord = {
     id: randomToken(8),
@@ -1703,19 +1883,25 @@ async function createNavigationLink(
     title: payload.title,
     url: payload.url,
     description: payload.description,
-    sortOrder: ids.length,
+    sortOrder: links.length,
     visitCount: 0,
     lastVisitedAt: null,
     createdAt: now,
     updatedAt: now
   };
   await saveNavigationLink(env, link);
+  if (hasD1(env)) {
+    return link;
+  }
+  const ids = await getNavigationLinkIndex(env, payload.categoryId);
   await saveNavigationLinkIndex(env, payload.categoryId, [...ids, link.id]);
   return link;
 }
 
 async function reorderNavigationLinks(env: Env, categoryId: string, ids: string[]): Promise<NavigationLinkRecord[]> {
-  await saveNavigationLinkIndex(env, categoryId, ids);
+  if (!hasD1(env)) {
+    await saveNavigationLinkIndex(env, categoryId, ids);
+  }
   const now = new Date().toISOString();
   const links = await Promise.all(
     ids.map(async (id, index) => {
@@ -1770,6 +1956,11 @@ async function updateNavigationLink(
 }
 
 async function deleteNavigationLink(env: Env, linkId: string, categoryId: string): Promise<void> {
+  if (hasD1(env)) {
+    await env.DB.prepare('DELETE FROM navigation_links WHERE id = ?').bind(linkId).run();
+    return;
+  }
+
   await env.APP_KV.delete(`nav:link:${linkId}`);
   const nextIds = (await getNavigationLinkIndex(env, categoryId)).filter((id) => id !== linkId);
   await reorderNavigationLinks(env, categoryId, nextIds);
@@ -1794,17 +1985,41 @@ async function saveNoteIndex(env: Env, ids: string[]): Promise<void> {
 }
 
 async function getNoteRecord(env: Env, id: string): Promise<NoteRecord | null> {
+  if (hasD1(env)) {
+    const row = await env.DB.prepare(
+      'SELECT id, title, content, is_pinned, created_at, updated_at FROM notes WHERE id = ?'
+    )
+      .bind(id)
+      .first<NoteRow>();
+    return row ? mapNoteRow(row) : null;
+  }
+
   const note = await env.APP_KV.get(`note:${id}`, 'json');
   return note as NoteRecord | null;
 }
 
 async function saveNoteRecord(env: Env, note: NoteRecord): Promise<NoteRecord> {
+  if (hasD1(env)) {
+    await env.DB.prepare(
+      `INSERT INTO notes (id, title, content, is_pinned, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         title = excluded.title,
+         content = excluded.content,
+         is_pinned = excluded.is_pinned,
+         created_at = excluded.created_at,
+         updated_at = excluded.updated_at`
+    )
+      .bind(note.id, note.title, note.content, Number(note.isPinned), note.createdAt, note.updatedAt)
+      .run();
+    return note;
+  }
+
   await env.APP_KV.put(`note:${note.id}`, JSON.stringify(note));
   return note;
 }
 
 async function createNoteRecord(env: Env, title: string, content: string): Promise<NoteRecord> {
-  const ids = await getNoteIndex(env);
   const now = new Date().toISOString();
   const note: NoteRecord = {
     id: randomToken(8),
@@ -1815,11 +2030,20 @@ async function createNoteRecord(env: Env, title: string, content: string): Promi
     updatedAt: now
   };
   await saveNoteRecord(env, note);
+  if (hasD1(env)) {
+    return note;
+  }
+  const ids = await getNoteIndex(env);
   await saveNoteIndex(env, [...ids, note.id]);
   return note;
 }
 
 async function deleteNoteRecord(env: Env, id: string): Promise<void> {
+  if (hasD1(env)) {
+    await env.DB.prepare('DELETE FROM notes WHERE id = ?').bind(id).run();
+    return;
+  }
+
   const ids = await getNoteIndex(env);
   await env.APP_KV.delete(`note:${id}`);
   await saveNoteIndex(
@@ -1829,6 +2053,13 @@ async function deleteNoteRecord(env: Env, id: string): Promise<void> {
 }
 
 async function getAllNotes(env: Env): Promise<NoteRecord[]> {
+  if (hasD1(env)) {
+    const result = await env.DB.prepare(
+      'SELECT id, title, content, is_pinned, created_at, updated_at FROM notes ORDER BY is_pinned DESC, updated_at DESC'
+    ).all<NoteRow>();
+    return (result.results ?? []).map(mapNoteRow);
+  }
+
   const ids = await getNoteIndex(env);
   const notes = await Promise.all(ids.map((id) => getNoteRecord(env, id)));
   return notes
@@ -1846,11 +2077,45 @@ async function saveSnippetIndex(env: Env, ids: string[]): Promise<void> {
 }
 
 async function getSnippetRecord(env: Env, id: string): Promise<SnippetRecord | null> {
+  if (hasD1(env)) {
+    const row = await env.DB.prepare(
+      'SELECT id, type, title, content, is_pinned, created_at, updated_at FROM snippets WHERE id = ?'
+    )
+      .bind(id)
+      .first<SnippetRow>();
+    return row ? mapSnippetRow(row) : null;
+  }
+
   const snippet = await env.APP_KV.get(`snippet:${id}`, 'json');
   return snippet as SnippetRecord | null;
 }
 
 async function saveSnippetRecord(env: Env, snippet: SnippetRecord): Promise<SnippetRecord> {
+  if (hasD1(env)) {
+    await env.DB.prepare(
+      `INSERT INTO snippets (id, type, title, content, is_pinned, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         type = excluded.type,
+         title = excluded.title,
+         content = excluded.content,
+         is_pinned = excluded.is_pinned,
+         created_at = excluded.created_at,
+         updated_at = excluded.updated_at`
+    )
+      .bind(
+        snippet.id,
+        snippet.type,
+        snippet.title,
+        snippet.content,
+        Number(snippet.isPinned),
+        snippet.createdAt,
+        snippet.updatedAt
+      )
+      .run();
+    return snippet;
+  }
+
   await env.APP_KV.put(`snippet:${snippet.id}`, JSON.stringify(snippet));
   return snippet;
 }
@@ -1859,7 +2124,6 @@ async function createSnippetRecord(
   env: Env,
   payload: Pick<SnippetRecord, 'type' | 'title' | 'content'>
 ): Promise<SnippetRecord> {
-  const ids = await getSnippetIndex(env);
   const now = new Date().toISOString();
   const snippet: SnippetRecord = {
     id: randomToken(8),
@@ -1871,11 +2135,20 @@ async function createSnippetRecord(
     updatedAt: now
   };
   await saveSnippetRecord(env, snippet);
+  if (hasD1(env)) {
+    return snippet;
+  }
+  const ids = await getSnippetIndex(env);
   await saveSnippetIndex(env, [...ids, snippet.id]);
   return snippet;
 }
 
 async function deleteSnippetRecord(env: Env, id: string): Promise<void> {
+  if (hasD1(env)) {
+    await env.DB.prepare('DELETE FROM snippets WHERE id = ?').bind(id).run();
+    return;
+  }
+
   const ids = await getSnippetIndex(env);
   await env.APP_KV.delete(`snippet:${id}`);
   await saveSnippetIndex(
@@ -1891,6 +2164,31 @@ async function getAllSnippets(
     query?: string;
   }
 ): Promise<SnippetRecord[]> {
+  if (hasD1(env)) {
+    let query =
+      'SELECT id, type, title, content, is_pinned, created_at, updated_at FROM snippets';
+    const conditions: string[] = [];
+    const bindings: Array<string | number> = [];
+
+    if (options?.type) {
+      conditions.push('type = ?');
+      bindings.push(options.type);
+    }
+    if (options?.query) {
+      conditions.push('(LOWER(title) LIKE ? OR LOWER(content) LIKE ?)');
+      const needle = `%${options.query.toLowerCase()}%`;
+      bindings.push(needle, needle);
+    }
+
+    if (conditions.length) {
+      query += ` WHERE ${conditions.join(' AND ')}`;
+    }
+
+    query += ' ORDER BY is_pinned DESC, updated_at DESC';
+    const result = await env.DB.prepare(query).bind(...bindings).all<SnippetRow>();
+    return (result.results ?? []).map(mapSnippetRow);
+  }
+
   const ids = await getSnippetIndex(env);
   const snippets = (await Promise.all(ids.map((id) => getSnippetRecord(env, id))))
     .filter((snippet): snippet is SnippetRecord => Boolean(snippet))
@@ -1928,6 +2226,13 @@ async function clearAllSources(env: Env): Promise<void> {
 }
 
 async function clearAllNavigation(env: Env): Promise<void> {
+  if (hasD1(env)) {
+    await env.DB.prepare('DELETE FROM navigation_links').run();
+    await env.DB.prepare('DELETE FROM navigation_categories').run();
+    await env.APP_KV.put(APP_KEYS.navigationSeeded, '1');
+    return;
+  }
+
   const categoryIds = await getNavigationCategoryIndex(env);
   const linkIndexLists = await Promise.all(categoryIds.map((categoryId) => getNavigationLinkIndex(env, categoryId)));
   const linkIds = linkIndexLists.flat();
@@ -1943,12 +2248,22 @@ async function clearAllNavigation(env: Env): Promise<void> {
 }
 
 async function clearAllNotes(env: Env): Promise<void> {
+  if (hasD1(env)) {
+    await env.DB.prepare('DELETE FROM notes').run();
+    return;
+  }
+
   const ids = await getNoteIndex(env);
   await Promise.all(ids.map((id) => env.APP_KV.delete(`note:${id}`)));
   await saveNoteIndex(env, []);
 }
 
 async function clearAllSnippets(env: Env): Promise<void> {
+  if (hasD1(env)) {
+    await env.DB.prepare('DELETE FROM snippets').run();
+    return;
+  }
+
   const ids = await getSnippetIndex(env);
   await Promise.all(ids.map((id) => env.APP_KV.delete(`snippet:${id}`)));
   await saveSnippetIndex(env, []);
@@ -2211,4 +2526,65 @@ function safeEqual(a: string, b: string): boolean {
 function randomToken(byteLength = 24): string {
   const bytes = crypto.getRandomValues(new Uint8Array(byteLength));
   return Array.from(bytes, (part) => part.toString(16).padStart(2, '0')).join('');
+}
+
+function hasD1(env: Env): env is Env & { DB: D1Database } {
+  return typeof env.DB !== 'undefined';
+}
+
+function mapNavigationCategoryRow(row: NavigationCategoryRow): NavigationCategoryRecord {
+  return {
+    id: row.id,
+    name: row.name,
+    sortOrder: row.sort_order,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function mapNavigationLinkRow(row: NavigationLinkRow): NavigationLinkRecord {
+  return {
+    id: row.id,
+    categoryId: row.category_id,
+    title: row.title,
+    url: row.url,
+    description: row.description ?? '',
+    sortOrder: row.sort_order,
+    visitCount: row.visit_count ?? 0,
+    lastVisitedAt: row.last_visited_at ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function mapNoteRow(row: NoteRow): NoteRecord {
+  return {
+    id: row.id,
+    title: row.title,
+    content: row.content,
+    isPinned: Boolean(row.is_pinned),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function mapSnippetRow(row: SnippetRow): SnippetRecord {
+  return {
+    id: row.id,
+    type: row.type,
+    title: row.title,
+    content: row.content,
+    isPinned: Boolean(row.is_pinned),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function mapLogRow(row: LogRow): LogRecord {
+  return {
+    id: row.id,
+    action: row.action,
+    detail: row.detail ?? null,
+    createdAt: row.created_at
+  };
 }
