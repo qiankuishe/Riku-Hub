@@ -123,12 +123,23 @@ async function request<T>(url: string, options?: RequestInit & { skipAuthRedirec
     headers
   });
 
-  const data = (await response.json().catch(() => ({}))) as { error?: string } & T;
+  const rawText = await response.text();
+  const data = (() => {
+    if (!rawText) {
+      return {} as { error?: string } & T;
+    }
+    try {
+      return (JSON.parse(rawText) as { error?: string } & T) ?? ({} as { error?: string } & T);
+    } catch {
+      return {} as { error?: string } & T;
+    }
+  })();
   if (response.status === 401 && !options?.skipAuthRedirect) {
     window.location.href = buildLoginRedirectUrl();
   }
   if (!response.ok) {
-    throw new Error(data.error || '请求失败');
+    const fallback = rawText.trim().slice(0, 180);
+    throw new Error(data.error || fallback || `请求失败 (${response.status})`);
   }
   return data;
 }
