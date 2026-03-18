@@ -63,7 +63,7 @@ function shortenUrl(url: string, maxLength = 54) {
       {{ subInfo.lastRefreshError }}
     </p>
 
-    <div class="link-list">
+    <div class="link-list subscription-links-list">
       <article v-for="format in subFormats" :key="format.key" class="link-item">
         <div>
           <h3>{{ format.name }}</h3>

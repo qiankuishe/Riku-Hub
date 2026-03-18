@@ -610,6 +610,10 @@ p {
   gap: 14px;
 }
 
+.subscription-links-list {
+  margin-top: 18px;
+}
+
 .link-item,
 .source-card,
 .log-head,
