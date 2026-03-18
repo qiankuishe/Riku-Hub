@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { nextTick, ref, watch } from 'vue';
 import { useUiStore, type SecondaryNavItem } from '../../stores/ui';
+import { clearAppLocalCacheAndReload } from '../../utils/localCacheReset';
 import { APP_NAV_ITEMS } from './nav';
 
 const uiStore = useUiStore();
@@ -52,6 +53,10 @@ async function handlePrimaryClick(itemTo: string) {
   emit('close');
 }
 
+function handleBrandClick() {
+  void clearAppLocalCacheAndReload();
+}
+
 watch(
   () => [props.currentPath, uiStore.expandedSidebarSection, props.secondaryItems.length, props.open],
   async ([currentPath, expandedSection, secondaryCount, open]) => {
@@ -72,10 +77,10 @@ watch(
     <div v-if="open" class="mobile-drawer-backdrop" @click.self="emit('close')">
       <aside class="mobile-drawer">
         <div class="mobile-drawer-head">
-          <div class="sidebar-brand">
+          <button class="sidebar-brand sidebar-brand-button" type="button" title="清空本地缓存并刷新当前页面" @click="handleBrandClick">
             <img src="/logo.png" alt="QianKui" class="sidebar-logo" />
             <strong>QianKui</strong>
-          </div>
+          </button>
           <button class="ghost small" @click="emit('close')">收起</button>
         </div>
 

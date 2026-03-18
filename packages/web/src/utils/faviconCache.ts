@@ -111,6 +111,24 @@ export async function setFavicon(url: string, dataUrl: string): Promise<void> {
   }
 }
 
+export async function clearFaviconCache(): Promise<void> {
+  try {
+    if (db) {
+      db.close();
+      db = null;
+    }
+
+    await new Promise<void>((resolve) => {
+      const request = indexedDB.deleteDatabase(DB_NAME);
+      request.onsuccess = () => resolve();
+      request.onerror = () => resolve();
+      request.onblocked = () => resolve();
+    });
+  } catch {
+    // ignore cache clear failures
+  }
+}
+
 async function ensureCacheSize(newEntrySize: number): Promise<void> {
   try {
     const database = await openDB();

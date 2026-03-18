@@ -355,6 +355,26 @@ p {
   margin-bottom: 8px;
 }
 
+.sidebar-brand-button {
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sidebar-brand-button:hover {
+  opacity: 0.92;
+}
+
+.sidebar-brand-button:focus-visible {
+  outline: 2px solid rgba(160, 98, 45, 0.45);
+  outline-offset: 6px;
+  border-radius: 24px;
+}
+
 .sidebar-brand strong {
   display: block;
   font-size: 18px;
