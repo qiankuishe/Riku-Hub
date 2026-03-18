@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch, type ComponentPublicInstance } from 'vue';
 import { faviconApi } from '../api';
 import { getFavicon as getCachedFavicon, setFavicon as cacheFavicon } from '../utils/faviconCache';
 
@@ -18,6 +18,9 @@ const sourceIndex = ref(0);
 const showLetter = ref(false);
 const cachedDataUrl = ref<string | null>(null);
 const cacheChecked = ref(false);
+const shouldLoad = ref(false);
+const rootElement = ref<HTMLElement | null>(null);
+let visibilityObserver: IntersectionObserver | null = null;
 
 const faviconSources = [
   (domain: string) => `https://www.google.com/s2/favicons?sz=64&domain=${domain}`,
@@ -49,6 +52,52 @@ function resetState() {
   cacheChecked.value = false;
 }
 
+function setRootElement(element: Element | ComponentPublicInstance | null) {
+  rootElement.value = element instanceof HTMLElement ? element : null;
+}
+
+function markVisible() {
+  if (shouldLoad.value) {
+    return;
+  }
+
+  shouldLoad.value = true;
+  visibilityObserver?.disconnect();
+  visibilityObserver = null;
+}
+
+function observeVisibility() {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  if (shouldLoad.value) {
+    return;
+  }
+
+  if (!('IntersectionObserver' in window)) {
+    markVisible();
+    return;
+  }
+
+  if (!rootElement.value) {
+    return;
+  }
+
+  visibilityObserver?.disconnect();
+  visibilityObserver = new window.IntersectionObserver(
+    (entries) => {
+      if (entries.some((entry) => entry.isIntersecting || entry.intersectionRatio > 0)) {
+        markVisible();
+      }
+    },
+    {
+      rootMargin: '240px 0px'
+    }
+  );
+  visibilityObserver.observe(rootElement.value);
+}
+
 function tryNextSource() {
   const next = sourceIndex.value + 1;
   if (next < faviconSources.length) {
@@ -59,6 +108,10 @@ function tryNextSource() {
 }
 
 async function loadCache() {
+  if (!shouldLoad.value) {
+    return;
+  }
+
   if (!domain.value) {
     cacheChecked.value = true;
     return;
@@ -112,20 +165,55 @@ watch(
   () => props.url,
   () => {
     resetState();
-    void loadCache();
+    if (shouldLoad.value) {
+      void loadCache();
+    }
   }
 );
 
+watch(rootElement, () => {
+  observeVisibility();
+});
+
+watch(shouldLoad, (visible) => {
+  if (visible) {
+    void loadCache();
+  }
+});
+
 onMounted(() => {
-  void loadCache();
+  observeVisibility();
+});
+
+onBeforeUnmount(() => {
+  visibilityObserver?.disconnect();
+  visibilityObserver = null;
 });
 </script>
 
 <template>
-  <div v-if="showLetter || !domain" class="favicon-fallback" :class="className">
+  <div v-if="showLetter || !domain" :ref="setRootElement" class="favicon-fallback" :class="className">
     <span>{{ title[0]?.toUpperCase() || '?' }}</span>
   </div>
-  <img v-else-if="cachedDataUrl" :src="cachedDataUrl" alt="" :class="className" />
-  <div v-else-if="!cacheChecked" class="favicon-skeleton" :class="className"></div>
-  <img v-else :src="imageSource" alt="" :class="className" @error="tryNextSource" @load="handleLoad" />
+  <img
+    v-else-if="cachedDataUrl"
+    :ref="setRootElement"
+    :src="cachedDataUrl"
+    alt=""
+    :class="className"
+    loading="lazy"
+    decoding="async"
+  />
+  <div v-else-if="!cacheChecked || !shouldLoad" :ref="setRootElement" class="favicon-skeleton" :class="className"></div>
+  <img
+    v-else
+    :ref="setRootElement"
+    :src="imageSource"
+    alt=""
+    :class="className"
+    loading="lazy"
+    decoding="async"
+    @error="tryNextSource"
+    @load="handleLoad"
+  />
 </template>
