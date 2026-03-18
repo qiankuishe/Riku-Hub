@@ -1008,6 +1008,7 @@ p {
 
 .notes-hero-grid {
   margin-top: 4px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .notes-sidebar-panel {
@@ -1208,6 +1209,7 @@ p {
 
 .clipboard-hero-grid {
   margin-top: 4px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .clipboard-workspace {
@@ -1464,6 +1466,11 @@ html.dark .clipboard-type-image {
 }
 
 @media (max-width: 1180px) {
+  .notes-hero-grid,
+  .clipboard-hero-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .clipboard-section .snippet-grid {
     grid-template-columns: 1fr;
   }
