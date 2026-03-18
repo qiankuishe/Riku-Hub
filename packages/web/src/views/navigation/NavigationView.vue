@@ -55,9 +55,6 @@ const errorMessage = ref('');
 const searchSectionId = 'nav-search-root';
 const localSearchReady = ref(false);
 const localSearchLoading = ref(false);
-const NAV_URL_DISPLAY_MAX_LENGTH = 25;
-const NAV_DESCRIPTION_MAX_LENGTH = 17;
-
 const recentLinks = computed(() => navigationStore.recentLinks.slice(0, 8));
 const hasCategories = computed(() => navigationStore.categories.length > 0);
 const hasLinks = computed(() => navigationStore.totalLinks > 0);
@@ -265,24 +262,6 @@ function normalizeNavigationUrl(value: string) {
   return `https://${trimmed}`;
 }
 
-function truncateText(value: string, maxLength: number) {
-  if (value.length <= maxLength) {
-    return value;
-  }
-
-  return `${value.slice(0, Math.max(0, maxLength - 3))}···`;
-}
-
-function formatNavigationUrlDisplay(value: string) {
-  try {
-    const parsed = new URL(value);
-    const path = parsed.pathname === '/' ? '' : parsed.pathname;
-    return truncateText(`${parsed.hostname}${path}`, NAV_URL_DISPLAY_MAX_LENGTH);
-  } catch {
-    return truncateText(value.replace(/^https?:\/\//i, ''), NAV_URL_DISPLAY_MAX_LENGTH);
-  }
-}
-
 function formatNavigationTitle(value: string) {
   const trimmed = value.trim();
   if (!trimmed) {
@@ -296,14 +275,6 @@ function formatNavigationTitle(value: string) {
   }
 
   return `${trimmed.slice(0, Math.max(0, maxLength - 1))}···`;
-}
-
-function formatNavigationDescription(value: string) {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return '暂无说明';
-  }
-  return truncateText(trimmed, NAV_DESCRIPTION_MAX_LENGTH);
 }
 
 async function saveLink() {
@@ -638,16 +609,16 @@ async function openSearchResult(result: SearchResult) {
                   <FaviconImage :url="link.url" :title="link.title" class-name="favicon-image" />
                   <div>
                     <h3 :title="link.title">{{ formatNavigationTitle(link.title) }}</h3>
-                    <p class="nav-link-url" :title="link.url">{{ formatNavigationUrlDisplay(link.url) }}</p>
                   </div>
                 </div>
               </div>
 
-              <p class="nav-card-description" :title="link.description || '暂无说明'">{{ formatNavigationDescription(link.description) }}</p>
-
-              <div class="nav-card-meta">
-                <span>{{ link.visitCount || 0 }} 次访问</span>
-                <span>{{ formatDateTime(link.lastVisitedAt ?? undefined, '尚未访问') }}</span>
+              <div v-if="!isEditMode" class="nav-card-hover">
+                <div class="nav-card-hover-meta">
+                  <span>{{ link.visitCount || 0 }} 次访问</span>
+                  <span>{{ formatDateTime(link.lastVisitedAt ?? undefined, '尚未访问') }}</span>
+                </div>
+                <p>{{ link.description || '暂无说明' }}</p>
               </div>
 
               <div v-if="isEditMode" class="nav-card-actions">
