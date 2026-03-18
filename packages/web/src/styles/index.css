@@ -1097,7 +1097,6 @@ p {
 .clipboard-section,
 .clipboard-card-title,
 .clipboard-editor-aside,
-.clipboard-editor-preview-panel,
 .clipboard-editor-summary {
   display: grid;
   gap: 14px;
@@ -1123,19 +1122,27 @@ p {
 }
 
 .clipboard-editor-card {
-  width: min(980px, 100%);
+  width: min(860px, 100%);
+  max-height: min(760px, calc(100vh - 36px));
+  overflow: auto;
+  padding: 20px 22px;
 }
 
 .clipboard-editor-layout {
   display: grid;
-  grid-template-columns: minmax(250px, 0.9fr) minmax(0, 1.2fr);
-  gap: 18px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.clipboard-editor-aside {
+  grid-template-columns: minmax(0, 1.2fr) minmax(240px, 0.8fr);
   align-items: start;
 }
 
 .clipboard-editor-summary {
   border-radius: 22px;
-  padding: 16px;
+  padding: 14px 16px;
   border: 1px solid var(--line);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.36), rgba(255, 255, 255, 0)),
@@ -1167,21 +1174,9 @@ p {
   box-shadow: inset 0 1px 0 rgba(198, 119, 45, 0.08);
 }
 
-.clipboard-editor-preview-panel {
-  border-radius: 22px;
-  padding: 16px;
-  border: 1px solid var(--line);
-  background: var(--bg-panel-strong);
-}
-
-.clipboard-editor-preview-content {
-  min-height: 220px;
-  max-height: 360px;
-  overflow: auto;
-}
-
 .clipboard-editor-tips {
   background: rgba(255, 255, 255, 0.44);
+  padding: 14px 16px;
 }
 
 .clipboard-editor-tips p + p {
@@ -1195,7 +1190,7 @@ p {
 .clipboard-editor-footer {
   justify-content: flex-start;
   padding-top: 4px;
- }
+}
 
 .clipboard-compose-panel {
   position: sticky;
@@ -1521,7 +1516,8 @@ html.dark .clipboard-type-image {
 
   .clipboard-type-grid,
   .clipboard-editor-type-grid,
-  .clipboard-editor-layout {
+  .clipboard-editor-layout,
+  .clipboard-editor-aside {
     grid-template-columns: 1fr;
   }
 }

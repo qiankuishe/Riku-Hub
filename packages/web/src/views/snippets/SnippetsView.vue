@@ -314,23 +314,6 @@ function getSnippetDisplayContent(snippet: SnippetRecord) {
   return getSnippetExcerpt(snippet);
 }
 
-function getContentExcerpt(type: SnippetType, content: string) {
-  if (type === 'image') {
-    return '';
-  }
-  if (type === 'link') {
-    return content.trim();
-  }
-
-  const excerpt = content
-    .split(/\r?\n/)
-    .slice(0, 8)
-    .join('\n')
-    .slice(0, 320)
-    .trimEnd();
-  return excerpt.length < content.trimEnd().length ? `${excerpt}...` : excerpt;
-}
-
 function getSnippetMeta(snippet: SnippetRecord) {
   if (snippet.type === 'image') {
     return formatBytes(getByteLength(snippet.content));
@@ -887,32 +870,6 @@ async function handleEditorImageUpload(event: Event) {
               </p>
             </div>
 
-            <div class="clipboard-editor-preview-panel">
-              <div class="clipboard-section-head">
-                <div>
-                  <h3>内容预览</h3>
-                </div>
-              </div>
-
-              <div v-if="formType === 'image' && formContent" class="clipboard-preview-card">
-                <img :src="formContent" alt="" class="snippet-image" />
-              </div>
-              <a
-                v-else-if="formType === 'link' && formContent.trim()"
-                :href="formContent.trim()"
-                target="_blank"
-                rel="noreferrer"
-                class="snippet-link clipboard-link"
-              >
-                {{ formContent.trim() }}
-              </a>
-              <pre
-                v-else
-                class="clipboard-content-block clipboard-editor-preview-content"
-                :class="{ 'snippet-code': formType === 'code', 'clipboard-text-block': formType !== 'code' }"
-              >{{ getContentExcerpt(formType, formContent) || '内容预览会显示在这里' }}</pre>
-            </div>
-
             <div class="validation-box clipboard-editor-tips">
               <strong>编辑建议</strong>
               <p>标题尽量写成你之后一眼能认出的名字。</p>
@@ -952,7 +909,7 @@ async function handleEditorImageUpload(event: Event) {
               <span>内容</span>
               <textarea
                 v-model="formContent"
-                rows="12"
+                rows="9"
                 :placeholder="formType === 'link' ? 'https://example.com' : formType === 'image' ? '可直接上传图片或读取剪贴板图片' : '输入内容'"
               ></textarea>
             </label>
