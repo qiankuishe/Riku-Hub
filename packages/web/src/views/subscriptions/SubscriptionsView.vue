@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
-import QRCode from 'qrcode';
 import { sourcesApi, type Source, type ValidationResult } from '../../api';
 import { useSubscriptionsStore } from '../../stores/subscriptions';
 import { useUiStore } from '../../stores/ui';
@@ -159,8 +158,9 @@ async function copyLink(url: string) {
 }
 
 async function showQr(name: string, url: string) {
+  const { toDataURL } = await import('qrcode');
   qrTitle.value = name;
-  qrCodeUrl.value = await QRCode.toDataURL(url, { width: 260, margin: 1 });
+  qrCodeUrl.value = await toDataURL(url, { width: 260, margin: 1 });
   qrDialogVisible.value = true;
 }
 

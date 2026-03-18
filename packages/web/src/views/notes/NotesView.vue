@@ -1,12 +1,8 @@
 <script setup lang="ts">
-import DOMPurify from 'dompurify';
-import { marked } from 'marked';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useNotesStore } from '../../stores/notes';
 import { useUiStore } from '../../stores/ui';
 import { formatDateTime } from '../../utils/date';
-
-marked.setOptions({ breaks: true, gfm: true });
 
 const notesStore = useNotesStore();
 const uiStore = useUiStore();
@@ -16,15 +12,18 @@ const selectedNoteId = ref<string | null>(null);
 const editTitle = ref('');
 const editContent = ref('');
 const previewMode = ref(false);
+const previewLoading = ref(false);
 const saveState = ref<'idle' | 'saving' | 'saved'>('idle');
 const deleteTargetId = ref<string | null>(null);
 const highlightedNoteId = ref<string | null>(null);
+const renderedPreview = ref('');
 let initialFocusHandled = false;
 let saveTimer: number | undefined;
 let hydrating = false;
+let previewRunId = 0;
+let renderMarkdown: ((content: string) => string) | null = null;
 
 const selectedNote = computed(() => notesStore.notes.find((note) => note.id === selectedNoteId.value) ?? null);
-const renderedPreview = computed(() => DOMPurify.sanitize(marked.parse(editContent.value) as string));
 
 watch(
   () => notesStore.notes,
@@ -58,6 +57,26 @@ watch([editTitle, editContent], () => {
   queueSave();
 });
 
+watch(
+  [previewMode, editContent],
+  async ([enabled, content]) => {
+    if (!enabled) {
+      previewLoading.value = false;
+      return;
+    }
+
+    const runId = ++previewRunId;
+    previewLoading.value = true;
+    const renderer = await ensureMarkdownRenderer();
+    if (runId !== previewRunId) {
+      return;
+    }
+    renderedPreview.value = renderer(content);
+    previewLoading.value = false;
+  },
+  { immediate: true }
+);
+
 onMounted(() => {
   uiStore.clearSecondaryNav();
   void notesStore.loadAll();
@@ -89,6 +108,18 @@ watch(
 
 function selectNote(id: string) {
   selectedNoteId.value = id;
+}
+
+async function ensureMarkdownRenderer() {
+  if (renderMarkdown) {
+    return renderMarkdown;
+  }
+
+  const [{ marked }, domPurifyModule] = await Promise.all([import('marked'), import('dompurify')]);
+  marked.setOptions({ breaks: true, gfm: true });
+  const DOMPurify = domPurifyModule.default;
+  renderMarkdown = (content: string) => DOMPurify.sanitize(marked.parse(content) as string);
+  return renderMarkdown;
 }
 
 async function createNote() {
@@ -207,6 +238,8 @@ async function confirmDelete() {
               <span>内容</span>
               <textarea v-model="editContent" rows="18" placeholder="支持 Markdown 语法"></textarea>
             </div>
+
+            <div v-else-if="previewLoading" class="markdown-preview">正在加载预览器...</div>
 
             <div v-else class="markdown-preview" v-html="renderedPreview"></div>
           </div>

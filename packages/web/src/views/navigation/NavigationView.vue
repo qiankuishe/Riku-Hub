@@ -53,6 +53,8 @@ const deleteCategoryTarget = ref<NavigationCategory | null>(null);
 const deleteLinkTarget = ref<NavigationLink | null>(null);
 const errorMessage = ref('');
 const searchSectionId = 'nav-search-root';
+const localSearchReady = ref(false);
+const localSearchLoading = ref(false);
 
 const recentLinks = computed(() => navigationStore.recentLinks.slice(0, 8));
 
@@ -63,6 +65,10 @@ const localSearchResults = computed<SearchResult[]>(() => {
 
   const query = searchQuery.value.trim().toLowerCase();
   if (!query) {
+    return [];
+  }
+
+  if (!localSearchReady.value) {
     return [];
   }
 
@@ -153,19 +159,35 @@ watch(
 );
 
 onMounted(async () => {
-  await Promise.all([
-    navigationStore.loadAll(),
-    notesStore.loadAll(),
-    snippetsStore.loadAll({ type: 'all' })
-  ]);
+  await navigationStore.loadAll();
 });
 
 onUnmounted(() => {
   uiStore.clearSecondaryNav();
 });
 
+watch(searchEngine, (engine) => {
+  if (engine === 'local') {
+    void ensureLocalSearchData();
+  }
+});
+
 function getCategorySectionId(categoryId: string) {
   return `nav-category-${categoryId}`;
+}
+
+async function ensureLocalSearchData() {
+  if (localSearchReady.value || localSearchLoading.value) {
+    return;
+  }
+
+  localSearchLoading.value = true;
+  try {
+    await Promise.all([notesStore.loadAll(), snippetsStore.loadAll({ type: 'all' })]);
+    localSearchReady.value = true;
+  } finally {
+    localSearchLoading.value = false;
+  }
 }
 
 function focusCategory(categoryId: string | null) {
@@ -430,7 +452,8 @@ async function openSearchResult(result: SearchResult) {
             <span class="inline-status">{{ localSearchResults.length }} 条</span>
           </div>
 
-          <div v-if="localSearchResults.length === 0" class="empty-state">没有匹配结果。</div>
+          <div v-if="localSearchLoading" class="empty-state">正在加载站内数据...</div>
+          <div v-else-if="localSearchResults.length === 0" class="empty-state">没有匹配结果。</div>
           <div v-else class="nav-search-results-list">
             <button
               v-for="result in localSearchResults"
