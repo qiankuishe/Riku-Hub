@@ -91,6 +91,26 @@ export interface SnippetRecord {
   updatedAt: string;
 }
 
+export interface SettingsExportStats {
+  sources: number;
+  navigationCategories: number;
+  navigationLinks: number;
+  notes: number;
+  snippets: number;
+}
+
+export interface SettingsBackupPayload {
+  version?: string;
+  exportedAt?: string;
+  stats?: SettingsExportStats;
+  sources?: Source[];
+  navigation?: NavigationCategory[];
+  categories?: NavigationCategory[];
+  notes?: NoteRecord[];
+  snippets?: SnippetRecord[];
+  clipboard_items?: SnippetRecord[];
+}
+
 async function request<T>(url: string, options?: RequestInit & { skipAuthRedirect?: boolean }): Promise<T> {
   const headers = new Headers(options?.headers);
   if (options?.body && !headers.has('Content-Type')) {
@@ -262,6 +282,20 @@ export const snippetsApi = {
     }),
   delete: (id: string) =>
     request<{ success: boolean }>(`/api/snippets/${id}`, {
+      method: 'DELETE'
+    })
+};
+
+export const settingsApi = {
+  getExportStats: () => request<{ stats: SettingsExportStats }>('/api/settings/export/stats'),
+  exportData: () => request<{ backup: SettingsBackupPayload }>('/api/settings/export'),
+  importData: (backup: SettingsBackupPayload) =>
+    request<{ success: boolean; message: string; imported: SettingsExportStats }>('/api/settings/import', {
+      method: 'POST',
+      body: JSON.stringify({ backup })
+    }),
+  clearData: (scope: 'sources' | 'navigation' | 'notes' | 'snippets' | 'all') =>
+    request<{ success: boolean; scope: string }>(`/api/settings/data/${scope}`, {
       method: 'DELETE'
     })
 };

@@ -87,6 +87,27 @@ interface SnippetRecord {
   updatedAt: string;
 }
 
+type SettingsDangerScope = 'sources' | 'navigation' | 'notes' | 'snippets' | 'all';
+
+interface SettingsExportStats {
+  sources: number;
+  navigationCategories: number;
+  navigationLinks: number;
+  notes: number;
+  snippets: number;
+}
+
+interface SettingsBackupPayload {
+  version?: string;
+  exportedAt?: string;
+  sources?: SourceRecord[];
+  navigation?: NavigationCategoryPayload[];
+  categories?: NavigationCategoryPayload[];
+  notes?: NoteRecord[];
+  snippets?: SnippetRecord[];
+  clipboard_items?: SnippetRecord[];
+}
+
 const app = new Hono<Bindings>();
 
 const SESSION_TTL_SECONDS = 24 * 60 * 60;
@@ -358,6 +379,69 @@ app.get('/api/logs', async (c) => {
   const limit = Number.parseInt(c.req.query('limit') || '50', 10);
   const logs = await getLogs(c.env);
   return c.json({ logs: logs.slice(0, limit) });
+});
+
+app.get('/api/settings/export/stats', async (c) => {
+  const stats = await getSettingsExportStats(c.env);
+  return c.json({ stats });
+});
+
+app.get('/api/settings/export', async (c) => {
+  const [sources, navigation, notes, snippets, stats] = await Promise.all([
+    getAllSources(c.env),
+    getNavigationTree(c.env),
+    getAllNotes(c.env),
+    getAllSnippets(c.env),
+    getSettingsExportStats(c.env)
+  ]);
+
+  return c.json({
+    backup: {
+      version: '1.0',
+      exportedAt: new Date().toISOString(),
+      stats,
+      sources,
+      navigation,
+      notes,
+      snippets
+    }
+  });
+});
+
+app.post('/api/settings/import', async (c) => {
+  const body = await readJson<{ backup?: SettingsBackupPayload }>(c.req.raw);
+  const backup = body.backup;
+
+  if (!backup || typeof backup !== 'object') {
+    return c.json({ error: '导入文件内容无效' }, 400);
+  }
+
+  try {
+    const imported = await importSettingsBackup(c.env, backup);
+    await appendLog(
+      c.env,
+      'settings_import',
+      `导入数据：订阅源 ${imported.sources}，导航分类 ${imported.navigationCategories}，笔记 ${imported.notes}，片段 ${imported.snippets}`
+    );
+    return c.json({
+      success: true,
+      message: '导入完成，当前数据已替换',
+      imported
+    });
+  } catch (error) {
+    return c.json({ error: error instanceof Error ? error.message : '导入失败' }, 400);
+  }
+});
+
+app.delete('/api/settings/data/:scope', async (c) => {
+  const scope = c.req.param('scope') as SettingsDangerScope;
+  if (!['sources', 'navigation', 'notes', 'snippets', 'all'].includes(scope)) {
+    return c.json({ error: '清理范围无效' }, 400);
+  }
+
+  await clearSettingsScope(c.env, scope);
+  await appendLog(c.env, 'settings_clear', `清理数据范围：${scope}`);
+  return c.json({ success: true, scope });
 });
 
 app.get('/api/navigation', async (c) => {
@@ -1291,6 +1375,76 @@ function getLastSaveTime(sources: SourceRecord[]): string {
   return sources.reduce((latest, source) => (source.updatedAt > latest ? source.updatedAt : latest), '');
 }
 
+async function getSettingsExportStats(env: Env): Promise<SettingsExportStats> {
+  const [sources, navigation, notes, snippets] = await Promise.all([
+    getAllSources(env),
+    getNavigationTree(env),
+    getAllNotes(env),
+    getAllSnippets(env)
+  ]);
+
+  return {
+    sources: sources.length,
+    navigationCategories: navigation.length,
+    navigationLinks: navigation.reduce((sum, category) => sum + category.links.length, 0),
+    notes: notes.length,
+    snippets: snippets.length
+  };
+}
+
+async function clearSettingsScope(env: Env, scope: SettingsDangerScope): Promise<void> {
+  switch (scope) {
+    case 'sources':
+      await clearAllSources(env);
+      return;
+    case 'navigation':
+      await clearAllNavigation(env);
+      return;
+    case 'notes':
+      await clearAllNotes(env);
+      return;
+    case 'snippets':
+      await clearAllSnippets(env);
+      return;
+    case 'all':
+      await Promise.all([clearAllSources(env), clearAllNavigation(env), clearAllNotes(env), clearAllSnippets(env)]);
+      return;
+  }
+}
+
+async function importSettingsBackup(env: Env, backup: SettingsBackupPayload): Promise<SettingsExportStats> {
+  const sources = normalizeSourceBackup(backup.sources);
+  const navigation = normalizeNavigationBackup(backup.navigation ?? backup.categories);
+  const notes = normalizeNoteBackup(backup.notes);
+  const snippets = normalizeSnippetBackup(backup.snippets ?? backup.clipboard_items);
+
+  await clearSettingsScope(env, 'all');
+
+  if (sources.length) {
+    await replaceSources(env, sources);
+  }
+
+  if (navigation.length) {
+    await replaceNavigation(env, navigation);
+  }
+
+  if (notes.length) {
+    await replaceNotes(env, notes);
+  }
+
+  if (snippets.length) {
+    await replaceSnippets(env, snippets);
+  }
+
+  return {
+    sources: sources.length,
+    navigationCategories: navigation.length,
+    navigationLinks: navigation.reduce((sum, category) => sum + category.links.length, 0),
+    notes: notes.length,
+    snippets: snippets.length
+  };
+}
+
 async function getSubToken(env: Env): Promise<string> {
   if (env.SUB_TOKEN) {
     return env.SUB_TOKEN;
@@ -1734,6 +1888,200 @@ async function getAllSnippets(
     }
     return true;
   });
+}
+
+async function clearSubscriptionCache(env: Env): Promise<void> {
+  const formats: OutputFormat[] = ['base64', 'clash', 'stash', 'surge', 'loon', 'qx', 'singbox'];
+  await Promise.all([env.CACHE_KV.delete(CACHE_KEYS.nodes), ...formats.map((format) => env.CACHE_KV.delete(CACHE_KEYS.format(format)))]);
+  await saveAggregateMeta(env, {
+    cacheStatus: 'missing',
+    totalNodes: 0,
+    warningCount: 0,
+    lastRefreshTime: '',
+    lastRefreshError: ''
+  });
+}
+
+async function clearAllSources(env: Env): Promise<void> {
+  const ids = await getSourceIndex(env);
+  await Promise.all(ids.map((id) => env.APP_KV.delete(`source:${id}`)));
+  await saveSourceIndex(env, []);
+  await clearSubscriptionCache(env);
+}
+
+async function clearAllNavigation(env: Env): Promise<void> {
+  const categoryIds = await getNavigationCategoryIndex(env);
+  const linkIndexLists = await Promise.all(categoryIds.map((categoryId) => getNavigationLinkIndex(env, categoryId)));
+  const linkIds = linkIndexLists.flat();
+
+  await Promise.all([
+    ...categoryIds.map((categoryId) => env.APP_KV.delete(`nav:category:${categoryId}`)),
+    ...categoryIds.map((categoryId) => env.APP_KV.delete(`nav:link:index:${categoryId}`)),
+    ...linkIds.map((linkId) => env.APP_KV.delete(`nav:link:${linkId}`))
+  ]);
+
+  await saveNavigationCategoryIndex(env, []);
+  await env.APP_KV.put(APP_KEYS.navigationSeeded, '1');
+}
+
+async function clearAllNotes(env: Env): Promise<void> {
+  const ids = await getNoteIndex(env);
+  await Promise.all(ids.map((id) => env.APP_KV.delete(`note:${id}`)));
+  await saveNoteIndex(env, []);
+}
+
+async function clearAllSnippets(env: Env): Promise<void> {
+  const ids = await getSnippetIndex(env);
+  await Promise.all(ids.map((id) => env.APP_KV.delete(`snippet:${id}`)));
+  await saveSnippetIndex(env, []);
+}
+
+function normalizeSourceBackup(records: SourceRecord[] | undefined): SourceRecord[] {
+  if (!Array.isArray(records)) {
+    return [];
+  }
+
+  return records.map((record, index) => {
+    const now = new Date().toISOString();
+    return {
+      id: typeof record?.id === 'string' && record.id ? record.id : randomToken(8),
+      name: typeof record?.name === 'string' ? record.name : `订阅源 ${index + 1}`,
+      content: typeof record?.content === 'string' ? record.content : '',
+      nodeCount: typeof record?.nodeCount === 'number' ? record.nodeCount : 0,
+      sortOrder: typeof record?.sortOrder === 'number' ? record.sortOrder : index,
+      createdAt: typeof record?.createdAt === 'string' && record.createdAt ? record.createdAt : now,
+      updatedAt: typeof record?.updatedAt === 'string' && record.updatedAt ? record.updatedAt : now
+    };
+  });
+}
+
+function normalizeNavigationBackup(records: NavigationCategoryPayload[] | undefined): NavigationCategoryPayload[] {
+  if (!Array.isArray(records)) {
+    return [];
+  }
+
+  return records.map((category, categoryIndex) => {
+    const now = new Date().toISOString();
+    const categoryId = typeof category?.id === 'string' && category.id ? category.id : randomToken(8);
+    const links = Array.isArray(category?.links) ? category.links : [];
+
+    return {
+      id: categoryId,
+      name: typeof category?.name === 'string' ? category.name : `导入分类 ${categoryIndex + 1}`,
+      sortOrder: typeof category?.sortOrder === 'number' ? category.sortOrder : categoryIndex,
+      createdAt: typeof category?.createdAt === 'string' && category.createdAt ? category.createdAt : now,
+      updatedAt: typeof category?.updatedAt === 'string' && category.updatedAt ? category.updatedAt : now,
+      links: links.map((link, linkIndex) => ({
+        id: typeof link?.id === 'string' && link.id ? link.id : randomToken(8),
+        categoryId,
+        title: typeof link?.title === 'string' ? link.title : `链接 ${linkIndex + 1}`,
+        url: typeof link?.url === 'string' ? link.url : '',
+        description: typeof link?.description === 'string' ? link.description : '',
+        sortOrder: typeof link?.sortOrder === 'number' ? link.sortOrder : linkIndex,
+        visitCount: typeof link?.visitCount === 'number' ? link.visitCount : 0,
+        lastVisitedAt: typeof link?.lastVisitedAt === 'string' ? link.lastVisitedAt : null,
+        createdAt: typeof link?.createdAt === 'string' && link.createdAt ? link.createdAt : now,
+        updatedAt: typeof link?.updatedAt === 'string' && link.updatedAt ? link.updatedAt : now
+      }))
+    };
+  });
+}
+
+function normalizeNoteBackup(records: NoteRecord[] | undefined): NoteRecord[] {
+  if (!Array.isArray(records)) {
+    return [];
+  }
+
+  return records.map((note, index) => {
+    const now = new Date().toISOString();
+    return {
+      id: typeof note?.id === 'string' && note.id ? note.id : randomToken(8),
+      title: typeof note?.title === 'string' ? note.title : `导入笔记 ${index + 1}`,
+      content: typeof note?.content === 'string' ? note.content : '',
+      isPinned: Boolean(note?.isPinned),
+      createdAt: typeof note?.createdAt === 'string' && note.createdAt ? note.createdAt : now,
+      updatedAt: typeof note?.updatedAt === 'string' && note.updatedAt ? note.updatedAt : now
+    };
+  });
+}
+
+function normalizeSnippetBackup(records: SnippetRecord[] | undefined): SnippetRecord[] {
+  if (!Array.isArray(records)) {
+    return [];
+  }
+
+  return records.map((snippet, index) => {
+    const now = new Date().toISOString();
+    const type: SnippetType =
+      snippet?.type === 'code' || snippet?.type === 'link' || snippet?.type === 'image' ? snippet.type : 'text';
+
+    return {
+      id: typeof snippet?.id === 'string' && snippet.id ? snippet.id : randomToken(8),
+      type,
+      title: typeof snippet?.title === 'string' ? snippet.title : `导入片段 ${index + 1}`,
+      content: typeof snippet?.content === 'string' ? snippet.content : '',
+      isPinned: Boolean(snippet?.isPinned),
+      createdAt: typeof snippet?.createdAt === 'string' && snippet.createdAt ? snippet.createdAt : now,
+      updatedAt: typeof snippet?.updatedAt === 'string' && snippet.updatedAt ? snippet.updatedAt : now
+    };
+  });
+}
+
+async function replaceSources(env: Env, sources: SourceRecord[]): Promise<void> {
+  const ordered = [...sources].sort((left, right) => left.sortOrder - right.sortOrder);
+  await Promise.all(ordered.map((source, index) => saveSource(env, { ...source, sortOrder: index })));
+  await saveSourceIndex(
+    env,
+    ordered.map((source) => source.id)
+  );
+  await clearSubscriptionCache(env);
+}
+
+async function replaceNavigation(env: Env, categories: NavigationCategoryPayload[]): Promise<void> {
+  const orderedCategories = [...categories].sort((left, right) => left.sortOrder - right.sortOrder);
+
+  for (const [categoryIndex, category] of orderedCategories.entries()) {
+    await saveNavigationCategory(env, { ...category, sortOrder: categoryIndex });
+    const orderedLinks = [...category.links].sort((left, right) => left.sortOrder - right.sortOrder);
+    await Promise.all(
+      orderedLinks.map((link, linkIndex) =>
+        saveNavigationLink(env, {
+          ...link,
+          categoryId: category.id,
+          sortOrder: linkIndex
+        })
+      )
+    );
+    await saveNavigationLinkIndex(
+      env,
+      category.id,
+      orderedLinks.map((link) => link.id)
+    );
+  }
+
+  await saveNavigationCategoryIndex(
+    env,
+    orderedCategories.map((category) => category.id)
+  );
+  await env.APP_KV.put(APP_KEYS.navigationSeeded, '1');
+}
+
+async function replaceNotes(env: Env, notes: NoteRecord[]): Promise<void> {
+  const ordered = [...notes].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+  await Promise.all(ordered.map((note) => saveNoteRecord(env, note)));
+  await saveNoteIndex(
+    env,
+    ordered.map((note) => note.id)
+  );
+}
+
+async function replaceSnippets(env: Env, snippets: SnippetRecord[]): Promise<void> {
+  const ordered = [...snippets].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+  await Promise.all(ordered.map((snippet) => saveSnippetRecord(env, snippet)));
+  await saveSnippetIndex(
+    env,
+    ordered.map((snippet) => snippet.id)
+  );
 }
 
 function getMaxLogEntries(env: Env): number {

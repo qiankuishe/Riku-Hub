@@ -625,6 +625,137 @@ p {
   gap: 10px;
 }
 
+.settings-panel {
+  width: min(980px, 100%);
+}
+
+.settings-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.settings-section-card {
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  padding: 18px;
+  background: var(--bg-panel-strong);
+  display: grid;
+  gap: 16px;
+}
+
+.settings-section-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.settings-section-head h3 {
+  margin: 0 0 6px;
+}
+
+.settings-section-head p,
+.settings-helper-text,
+.settings-danger-copy p {
+  margin: 0;
+  color: var(--text-soft);
+}
+
+.settings-inline-grid,
+.settings-action-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.settings-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.settings-stat-tile {
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: rgba(160, 98, 45, 0.06);
+  padding: 14px 12px;
+  text-align: center;
+}
+
+.settings-stat-tile strong {
+  display: block;
+  font-size: 22px;
+  line-height: 1.1;
+}
+
+.settings-stat-tile span {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-soft);
+  font-size: 12px;
+}
+
+.settings-upload-button {
+  position: relative;
+  justify-content: center;
+  align-items: center;
+  display: inline-flex;
+}
+
+.settings-upload-button input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.settings-upload-button.disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.settings-danger-section {
+  border-color: rgba(176, 70, 51, 0.24);
+  background: rgba(176, 70, 51, 0.05);
+}
+
+.settings-danger-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.settings-danger-row,
+.settings-account-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+}
+
+.settings-danger-row {
+  padding: 14px 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(176, 70, 51, 0.22);
+  background: var(--bg-panel-strong);
+}
+
+.settings-danger-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.settings-danger-copy strong {
+  line-height: 1.35;
+}
+
+.settings-account-row {
+  align-items: stretch;
+}
+
+.settings-account-row .setting-card {
+  flex: 1;
+}
+
 .link-list,
 .source-list,
 .log-list,
@@ -1529,6 +1660,9 @@ html.dark .clipboard-type-image {
   .source-editor-layout,
   .meta-grid,
   .settings-grid,
+  .settings-inline-grid,
+  .settings-action-grid,
+  .settings-stat-grid,
   .nav-hero-grid {
     grid-template-columns: 1fr;
   }
@@ -1554,6 +1688,8 @@ html.dark .clipboard-type-image {
   .link-item,
   .source-card,
   .snippet-toolbar,
+  .settings-danger-row,
+  .settings-account-row,
   .clipboard-compose-footer,
   .clipboard-section-head,
   .notes-group-head,
