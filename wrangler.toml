@@ -13,16 +13,16 @@ MAX_LOG_ENTRIES = "200"
 
 [[kv_namespaces]]
 binding = "APP_KV"
-id = "ebe4ea790cdb40f2b8fd6c438700e889"
-preview_id = "ebe4ea790cdb40f2b8fd6c438700e889"
+id = "replace-with-app-kv-id"
+preview_id = "replace-with-app-kv-preview-id"
 
 [[kv_namespaces]]
 binding = "CACHE_KV"
-id = "ebe4ea790cdb40f2b8fd6c438700e889"
-preview_id = "ebe4ea790cdb40f2b8fd6c438700e889"
+id = "replace-with-cache-kv-id"
+preview_id = "replace-with-cache-kv-preview-id"
 
-# To enable D1 for high-write app data, create a database and bind it as `DB`,
-# then apply the SQL files under `./migrations`.
+# Recommended: bind a D1 database as `DB` for navigation, notes, snippets,
+# and logs. If omitted, those modules fall back to APP_KV.
 # [[d1_databases]]
 # binding = "DB"
 # database_name = "riku-hub-db"
