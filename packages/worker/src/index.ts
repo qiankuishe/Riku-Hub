@@ -156,6 +156,32 @@ interface LogRow {
   created_at: string;
 }
 
+interface SessionRow {
+  token: string;
+  username: string;
+  created_at: number;
+  expires_at: number;
+}
+
+interface LoginAttemptRow {
+  ip: string;
+  count: number;
+  last_attempt: number;
+  locked_until: number;
+  lock_level: number;
+  expires_at: number;
+}
+
+interface SourceRow {
+  id: string;
+  name: string;
+  content: string;
+  node_count: number;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
 const app = new Hono<Bindings>();
 
 const SESSION_TTL_SECONDS = 24 * 60 * 60;
@@ -262,7 +288,7 @@ app.post('/api/auth/login', async (c) => {
 app.post('/api/auth/logout', async (c) => {
   const token = getCookie(c.req.raw, 'session');
   if (token) {
-    await c.env.APP_KV.delete(sessionKey(token));
+    await deleteSession(c.env, token);
   }
   await appendLog(c.env, 'logout', '用户登出');
   c.header(
@@ -902,6 +928,23 @@ async function requireSession(env: Env, request: Request): Promise<{ username: s
   if (!token) {
     return null;
   }
+
+  if (hasD1(env)) {
+    const row = await env.DB.prepare(
+      'SELECT token, username, created_at, expires_at FROM auth_sessions WHERE token = ?'
+    )
+      .bind(token)
+      .first<SessionRow>();
+    if (!row) {
+      return null;
+    }
+    if (row.expires_at <= Date.now()) {
+      await deleteSession(env, token);
+      return null;
+    }
+    return { username: row.username };
+  }
+
   const raw = await env.APP_KV.get(sessionKey(token), 'json');
   if (!raw || typeof raw !== 'object') {
     return null;
@@ -911,10 +954,29 @@ async function requireSession(env: Env, request: Request): Promise<{ username: s
 
 async function createSession(env: Env, username: string): Promise<string> {
   const token = randomToken();
+  if (hasD1(env)) {
+    const now = Date.now();
+    await env.DB.prepare(
+      'INSERT INTO auth_sessions (token, username, created_at, expires_at) VALUES (?, ?, ?, ?)'
+    )
+      .bind(token, username, now, now + SESSION_TTL_SECONDS * 1000)
+      .run();
+    return token;
+  }
+
   await env.APP_KV.put(sessionKey(token), JSON.stringify({ username, createdAt: Date.now() }), {
     expirationTtl: SESSION_TTL_SECONDS
   });
   return token;
+}
+
+async function deleteSession(env: Env, token: string): Promise<void> {
+  if (hasD1(env)) {
+    await env.DB.prepare('DELETE FROM auth_sessions WHERE token = ?').bind(token).run();
+    return;
+  }
+
+  await env.APP_KV.delete(sessionKey(token));
 }
 
 function sessionKey(token: string): string {
@@ -926,6 +988,29 @@ function loginAttemptKey(ip: string): string {
 }
 
 async function getLoginAttempt(env: Env, ip: string): Promise<LoginAttemptState | null> {
+  if (hasD1(env)) {
+    const row = await env.DB.prepare(
+      `SELECT ip, count, last_attempt, locked_until, lock_level, expires_at
+       FROM login_attempts
+       WHERE ip = ?`
+    )
+      .bind(ip)
+      .first<LoginAttemptRow>();
+    if (!row) {
+      return null;
+    }
+    if (row.expires_at <= Date.now()) {
+      await clearLoginAttempt(env, ip);
+      return null;
+    }
+    return {
+      count: row.count,
+      lastAttempt: row.last_attempt,
+      lockedUntil: row.locked_until,
+      lockLevel: row.lock_level
+    };
+  }
+
   const data = await env.APP_KV.get(loginAttemptKey(ip), 'json');
   if (!data || typeof data !== 'object') {
     return null;
@@ -934,6 +1019,11 @@ async function getLoginAttempt(env: Env, ip: string): Promise<LoginAttemptState 
 }
 
 async function clearLoginAttempt(env: Env, ip: string): Promise<void> {
+  if (hasD1(env)) {
+    await env.DB.prepare('DELETE FROM login_attempts WHERE ip = ?').bind(ip).run();
+    return;
+  }
+
   await env.APP_KV.delete(loginAttemptKey(ip));
 }
 
@@ -970,9 +1060,23 @@ async function recordFailedAttempt(env: Env, ip: string, existing: LoginAttemptS
     state.lockedUntil = now + lockConfig.durationMs;
   }
 
-  await env.APP_KV.put(loginAttemptKey(ip), JSON.stringify(state), {
-    expirationTtl: SESSION_TTL_SECONDS
-  });
+  if (hasD1(env)) {
+    await env.DB.prepare(
+      `INSERT INTO login_attempts (ip, count, last_attempt, locked_until, lock_level, expires_at)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(ip) DO UPDATE SET
+         count = excluded.count,
+         last_attempt = excluded.last_attempt,
+         locked_until = excluded.locked_until,
+         lock_level = excluded.lock_level,
+         expires_at = excluded.expires_at`
+    )
+      .bind(ip, state.count, state.lastAttempt, state.lockedUntil, state.lockLevel, now + SESSION_TTL_SECONDS * 1000)
+      .run();
+    return state;
+  }
+
+  await env.APP_KV.put(loginAttemptKey(ip), JSON.stringify(state), { expirationTtl: SESSION_TTL_SECONDS });
   return state;
 }
 
@@ -1378,6 +1482,15 @@ function isBlockedIp(value: string): boolean {
 }
 
 async function getSource(env: Env, id: string): Promise<SourceRecord | null> {
+  if (hasD1(env)) {
+    const row = await env.DB.prepare(
+      'SELECT id, name, content, node_count, sort_order, created_at, updated_at FROM sources WHERE id = ?'
+    )
+      .bind(id)
+      .first<SourceRow>();
+    return row ? mapSourceRow(row) : null;
+  }
+
   const source = await env.APP_KV.get(`source:${id}`, 'json');
   return source as SourceRecord | null;
 }
@@ -1389,11 +1502,20 @@ async function getAllSources(env: Env): Promise<SourceRecord[]> {
 }
 
 async function getSourceIndex(env: Env): Promise<string[]> {
+  if (hasD1(env)) {
+    const result = await env.DB.prepare('SELECT id FROM sources ORDER BY sort_order ASC').all<{ id: string }>();
+    return (result.results ?? []).map((row) => row.id);
+  }
+
   const ids = await env.APP_KV.get(APP_KEYS.sourceIndex, 'json');
   return Array.isArray(ids) ? ids.filter((value): value is string => typeof value === 'string') : [];
 }
 
 async function saveSourceIndex(env: Env, ids: string[]): Promise<void> {
+  if (hasD1(env)) {
+    return;
+  }
+
   await env.APP_KV.put(APP_KEYS.sourceIndex, JSON.stringify(ids));
 }
 
@@ -1415,11 +1537,33 @@ async function createSource(env: Env, name: string, content: string, nodeCount: 
 }
 
 async function saveSource(env: Env, source: SourceRecord): Promise<SourceRecord> {
+  if (hasD1(env)) {
+    await env.DB.prepare(
+      `INSERT INTO sources (id, name, content, node_count, sort_order, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         name = excluded.name,
+         content = excluded.content,
+         node_count = excluded.node_count,
+         sort_order = excluded.sort_order,
+         created_at = excluded.created_at,
+         updated_at = excluded.updated_at`
+    )
+      .bind(source.id, source.name, source.content, source.nodeCount, source.sortOrder, source.createdAt, source.updatedAt)
+      .run();
+    return source;
+  }
+
   await env.APP_KV.put(`source:${source.id}`, JSON.stringify(source));
   return source;
 }
 
 async function deleteSource(env: Env, id: string): Promise<void> {
+  if (hasD1(env)) {
+    await env.DB.prepare('DELETE FROM sources WHERE id = ?').bind(id).run();
+    return;
+  }
+
   const ids = await getSourceIndex(env);
   await env.APP_KV.delete(`source:${id}`);
   await saveSourceIndex(
@@ -1506,19 +1650,27 @@ async function getSubToken(env: Env): Promise<string> {
   if (env.SUB_TOKEN) {
     return env.SUB_TOKEN;
   }
-  const existing = await env.APP_KV.get(APP_KEYS.subToken);
+
+  const existing = await getAppMetaValue(env, APP_KEYS.subToken);
   if (existing) {
     return existing;
   }
   const created = randomToken(32);
-  await env.APP_KV.put(APP_KEYS.subToken, created);
+  await setAppMetaValue(env, APP_KEYS.subToken, created);
   return created;
 }
 
 async function getAggregateMeta(env: Env): Promise<AggregateMeta> {
-  const meta = await env.APP_KV.get(APP_KEYS.aggregateMeta, 'json');
-  if (meta && typeof meta === 'object') {
-    return meta as AggregateMeta;
+  const raw = await getAppMetaValue(env, APP_KEYS.aggregateMeta);
+  if (raw) {
+    try {
+      const meta = JSON.parse(raw) as AggregateMeta;
+      if (meta && typeof meta === 'object') {
+        return meta;
+      }
+    } catch {
+      // ignore malformed meta and fall back to defaults
+    }
   }
   return {
     cacheStatus: 'missing',
@@ -1530,7 +1682,7 @@ async function getAggregateMeta(env: Env): Promise<AggregateMeta> {
 }
 
 async function saveAggregateMeta(env: Env, meta: AggregateMeta): Promise<AggregateMeta> {
-  await env.APP_KV.put(APP_KEYS.aggregateMeta, JSON.stringify(meta));
+  await setAppMetaValue(env, APP_KEYS.aggregateMeta, JSON.stringify(meta));
   return meta;
 }
 
@@ -1590,14 +1742,14 @@ async function getLogs(env: Env): Promise<LogRecord[]> {
 }
 
 async function ensureNavigationSeeded(env: Env): Promise<void> {
-  const seeded = await env.APP_KV.get(APP_KEYS.navigationSeeded);
+  const seeded = await getAppMetaValue(env, APP_KEYS.navigationSeeded);
   if (seeded) {
     return;
   }
 
   const existingCount = await getNavigationCategoryCount(env);
   if (existingCount > 0) {
-    await env.APP_KV.put(APP_KEYS.navigationSeeded, '1');
+    await setAppMetaValue(env, APP_KEYS.navigationSeeded, '1');
     return;
   }
 
@@ -1638,7 +1790,7 @@ async function ensureNavigationSeeded(env: Env): Promise<void> {
   }
 
   await saveNavigationCategoryIndex(env, categoryIds);
-  await env.APP_KV.put(APP_KEYS.navigationSeeded, '1');
+  await setAppMetaValue(env, APP_KEYS.navigationSeeded, '1');
 }
 
 async function getNavigationCategoryCount(env: Env): Promise<number> {
@@ -1690,11 +1842,20 @@ async function getNavigationCategories(env: Env): Promise<NavigationCategoryReco
 }
 
 async function getNavigationCategoryIndex(env: Env): Promise<string[]> {
+  if (hasD1(env)) {
+    const result = await env.DB.prepare('SELECT id FROM navigation_categories ORDER BY sort_order ASC').all<{ id: string }>();
+    return (result.results ?? []).map((row) => row.id);
+  }
+
   const ids = await env.APP_KV.get(APP_KEYS.navCategoryIndex, 'json');
   return Array.isArray(ids) ? ids.filter((value): value is string => typeof value === 'string') : [];
 }
 
 async function saveNavigationCategoryIndex(env: Env, ids: string[]): Promise<void> {
+  if (hasD1(env)) {
+    return;
+  }
+
   await env.APP_KV.put(APP_KEYS.navCategoryIndex, JSON.stringify(ids));
 }
 
@@ -1808,11 +1969,24 @@ async function getNavigationLink(env: Env, id: string): Promise<NavigationLinkRe
 }
 
 async function getNavigationLinkIndex(env: Env, categoryId: string): Promise<string[]> {
+  if (hasD1(env)) {
+    const result = await env.DB.prepare(
+      'SELECT id FROM navigation_links WHERE category_id = ? ORDER BY sort_order ASC'
+    )
+      .bind(categoryId)
+      .all<{ id: string }>();
+    return (result.results ?? []).map((row) => row.id);
+  }
+
   const ids = await env.APP_KV.get(`nav:link:index:${categoryId}`, 'json');
   return Array.isArray(ids) ? ids.filter((value): value is string => typeof value === 'string') : [];
 }
 
 async function saveNavigationLinkIndex(env: Env, categoryId: string, ids: string[]): Promise<void> {
+  if (hasD1(env)) {
+    return;
+  }
+
   await env.APP_KV.put(`nav:link:index:${categoryId}`, JSON.stringify(ids));
 }
 
@@ -1976,11 +2150,20 @@ async function recordNavigationLinkVisit(env: Env, link: NavigationLinkRecord): 
 }
 
 async function getNoteIndex(env: Env): Promise<string[]> {
+  if (hasD1(env)) {
+    const result = await env.DB.prepare('SELECT id FROM notes ORDER BY created_at ASC').all<{ id: string }>();
+    return (result.results ?? []).map((row) => row.id);
+  }
+
   const ids = await env.APP_KV.get(APP_KEYS.noteIndex, 'json');
   return Array.isArray(ids) ? ids.filter((value): value is string => typeof value === 'string') : [];
 }
 
 async function saveNoteIndex(env: Env, ids: string[]): Promise<void> {
+  if (hasD1(env)) {
+    return;
+  }
+
   await env.APP_KV.put(APP_KEYS.noteIndex, JSON.stringify(ids));
 }
 
@@ -2068,11 +2251,20 @@ async function getAllNotes(env: Env): Promise<NoteRecord[]> {
 }
 
 async function getSnippetIndex(env: Env): Promise<string[]> {
+  if (hasD1(env)) {
+    const result = await env.DB.prepare('SELECT id FROM snippets ORDER BY created_at ASC').all<{ id: string }>();
+    return (result.results ?? []).map((row) => row.id);
+  }
+
   const ids = await env.APP_KV.get(APP_KEYS.snippetIndex, 'json');
   return Array.isArray(ids) ? ids.filter((value): value is string => typeof value === 'string') : [];
 }
 
 async function saveSnippetIndex(env: Env, ids: string[]): Promise<void> {
+  if (hasD1(env)) {
+    return;
+  }
+
   await env.APP_KV.put(APP_KEYS.snippetIndex, JSON.stringify(ids));
 }
 
@@ -2219,6 +2411,12 @@ async function clearSubscriptionCache(env: Env): Promise<void> {
 }
 
 async function clearAllSources(env: Env): Promise<void> {
+  if (hasD1(env)) {
+    await env.DB.prepare('DELETE FROM sources').run();
+    await clearSubscriptionCache(env);
+    return;
+  }
+
   const ids = await getSourceIndex(env);
   await Promise.all(ids.map((id) => env.APP_KV.delete(`source:${id}`)));
   await saveSourceIndex(env, []);
@@ -2229,7 +2427,7 @@ async function clearAllNavigation(env: Env): Promise<void> {
   if (hasD1(env)) {
     await env.DB.prepare('DELETE FROM navigation_links').run();
     await env.DB.prepare('DELETE FROM navigation_categories').run();
-    await env.APP_KV.put(APP_KEYS.navigationSeeded, '1');
+    await setAppMetaValue(env, APP_KEYS.navigationSeeded, '1');
     return;
   }
 
@@ -2244,7 +2442,7 @@ async function clearAllNavigation(env: Env): Promise<void> {
   ]);
 
   await saveNavigationCategoryIndex(env, []);
-  await env.APP_KV.put(APP_KEYS.navigationSeeded, '1');
+  await setAppMetaValue(env, APP_KEYS.navigationSeeded, '1');
 }
 
 async function clearAllNotes(env: Env): Promise<void> {
@@ -2396,7 +2594,7 @@ async function replaceNavigation(env: Env, categories: NavigationCategoryPayload
     env,
     orderedCategories.map((category) => category.id)
   );
-  await env.APP_KV.put(APP_KEYS.navigationSeeded, '1');
+  await setAppMetaValue(env, APP_KEYS.navigationSeeded, '1');
 }
 
 async function replaceNotes(env: Env, notes: NoteRecord[]): Promise<void> {
@@ -2532,6 +2730,32 @@ function hasD1(env: Env): env is Env & { DB: D1Database } {
   return typeof env.DB !== 'undefined';
 }
 
+async function getAppMetaValue(env: Env, key: string): Promise<string | null> {
+  if (hasD1(env)) {
+    const row = await env.DB.prepare('SELECT value FROM app_meta WHERE key = ?').bind(key).first<{ value: string }>();
+    return row?.value ?? null;
+  }
+
+  return env.APP_KV.get(key);
+}
+
+async function setAppMetaValue(env: Env, key: string, value: string): Promise<void> {
+  if (hasD1(env)) {
+    await env.DB.prepare(
+      `INSERT INTO app_meta (key, value, updated_at)
+       VALUES (?, ?, ?)
+       ON CONFLICT(key) DO UPDATE SET
+         value = excluded.value,
+         updated_at = excluded.updated_at`
+    )
+      .bind(key, value, new Date().toISOString())
+      .run();
+    return;
+  }
+
+  await env.APP_KV.put(key, value);
+}
+
 function mapNavigationCategoryRow(row: NavigationCategoryRow): NavigationCategoryRecord {
   return {
     id: row.id,
@@ -2575,6 +2799,18 @@ function mapSnippetRow(row: SnippetRow): SnippetRecord {
     title: row.title,
     content: row.content,
     isPinned: Boolean(row.is_pinned),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function mapSourceRow(row: SourceRow): SourceRecord {
+  return {
+    id: row.id,
+    name: row.name,
+    content: row.content,
+    nodeCount: row.node_count,
+    sortOrder: row.sort_order,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
