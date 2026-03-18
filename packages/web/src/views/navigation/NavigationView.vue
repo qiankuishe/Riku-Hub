@@ -3,41 +3,14 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import FaviconImage from '../../components/FaviconImage.vue';
 import type { NavigationCategory, NavigationLink } from '../../api';
 import { useNavigationStore } from '../../stores/navigation';
-import { useNotesStore } from '../../stores/notes';
-import { useSnippetsStore } from '../../stores/snippets';
 import { useUiStore } from '../../stores/ui';
 import { formatDateTime } from '../../utils/date';
 
-type SearchResultType = 'link' | 'note' | 'snippet';
-type SearchEngineKey = 'google' | 'bing' | 'baidu' | 'github' | 'local';
-
-interface SearchResult {
-  type: SearchResultType;
-  id: string;
-  title: string;
-  description: string;
-  url?: string;
-  categoryId?: string;
-}
-
-const searchEngines: Record<SearchEngineKey, { label: string; prefix: string }> = {
-  google: { label: 'Google', prefix: 'https://www.google.com/search?q=' },
-  bing: { label: 'Bing', prefix: 'https://www.bing.com/search?q=' },
-  baidu: { label: '百度', prefix: 'https://www.baidu.com/s?wd=' },
-  github: { label: 'GitHub', prefix: 'https://github.com/search?q=' },
-  local: { label: '站内', prefix: '' }
-};
-
 const navigationStore = useNavigationStore();
-const notesStore = useNotesStore();
-const snippetsStore = useSnippetsStore();
 const uiStore = useUiStore();
 
 const activeCategoryId = ref<string | null>(null);
-const highlightedResultId = ref<string | null>(null);
 const isEditMode = ref(false);
-const searchQuery = ref('');
-const searchEngine = ref<SearchEngineKey>('google');
 const categoryDialogVisible = ref(false);
 const editingCategory = ref<NavigationCategory | null>(null);
 const categoryFormName = ref('');
@@ -52,73 +25,10 @@ const linkForm = ref({
 const deleteCategoryTarget = ref<NavigationCategory | null>(null);
 const deleteLinkTarget = ref<NavigationLink | null>(null);
 const errorMessage = ref('');
-const searchSectionId = 'nav-search-root';
-const localSearchReady = ref(false);
-const localSearchLoading = ref(false);
+const overviewSectionId = 'nav-overview-root';
 const recentLinks = computed(() => navigationStore.recentLinks.slice(0, 8));
 const hasCategories = computed(() => navigationStore.categories.length > 0);
 const hasLinks = computed(() => navigationStore.totalLinks > 0);
-
-const localSearchResults = computed<SearchResult[]>(() => {
-  if (searchEngine.value !== 'local') {
-    return [];
-  }
-
-  const query = searchQuery.value.trim().toLowerCase();
-  if (!query) {
-    return [];
-  }
-
-  if (!localSearchReady.value) {
-    return [];
-  }
-
-  const results: SearchResult[] = [];
-
-  for (const category of navigationStore.categories) {
-    for (const link of category.links) {
-      if (
-        link.title.toLowerCase().includes(query) ||
-        link.url.toLowerCase().includes(query) ||
-        link.description.toLowerCase().includes(query)
-      ) {
-        results.push({
-          type: 'link',
-          id: link.id,
-          title: link.title,
-          description: `${category.name}${link.description ? ` · ${link.description}` : ''}`,
-          url: link.url,
-          categoryId: category.id
-        });
-      }
-    }
-  }
-
-  for (const note of notesStore.notes) {
-    if (note.title.toLowerCase().includes(query) || note.content.toLowerCase().includes(query)) {
-      results.push({
-        type: 'note',
-        id: note.id,
-        title: note.title || '无标题笔记',
-        description: note.content.slice(0, 72) || '空白笔记'
-      });
-    }
-  }
-
-  for (const snippet of snippetsStore.snippets) {
-    const contentPreview = snippet.type === 'image' ? '[图片剪贴]' : snippet.content;
-    if (snippet.title.toLowerCase().includes(query) || contentPreview.toLowerCase().includes(query)) {
-      results.push({
-        type: 'snippet',
-        id: snippet.id,
-        title: snippet.title || '未命名剪贴内容',
-        description: `${snippet.type} · ${contentPreview.slice(0, 72) || '暂无内容'}`
-      });
-    }
-  }
-
-  return results.slice(0, 18);
-});
 
 watch(
   () => navigationStore.categories,
@@ -145,7 +55,7 @@ watch(
           key: 'all',
           label: '全部',
           badge: String(navigationStore.totalLinks),
-          targetId: searchSectionId
+          targetId: overviewSectionId
         },
         ...categories.map((category) => ({
           key: category.id,
@@ -167,28 +77,8 @@ onUnmounted(() => {
   uiStore.clearSecondaryNav();
 });
 
-watch(searchEngine, (engine) => {
-  if (engine === 'local') {
-    void ensureLocalSearchData();
-  }
-});
-
 function getCategorySectionId(categoryId: string) {
   return `nav-category-${categoryId}`;
-}
-
-async function ensureLocalSearchData() {
-  if (localSearchReady.value || localSearchLoading.value) {
-    return;
-  }
-
-  localSearchLoading.value = true;
-  try {
-    await Promise.all([notesStore.loadAll(), snippetsStore.loadAll({ type: 'all' })]);
-    localSearchReady.value = true;
-  } finally {
-    localSearchLoading.value = false;
-  }
 }
 
 function focusCategory(categoryId: string | null) {
@@ -408,17 +298,6 @@ function isLastLink(link: NavigationLink) {
   return category?.links.at(-1)?.id === link.id;
 }
 
-function handleSearchSubmit() {
-  const query = searchQuery.value.trim();
-  if (!query) {
-    return;
-  }
-  if (searchEngine.value === 'local') {
-    return;
-  }
-  window.open(`${searchEngines[searchEngine.value].prefix}${encodeURIComponent(query)}`, '_blank', 'noopener,noreferrer');
-}
-
 async function openLink(link: NavigationLink) {
   window.open(link.url, '_blank', 'noopener,noreferrer');
   try {
@@ -427,126 +306,25 @@ async function openLink(link: NavigationLink) {
     // ignore visit logging failures
   }
 }
-
-function flashResult(id: string) {
-  highlightedResultId.value = id;
-  window.setTimeout(() => {
-    if (highlightedResultId.value === id) {
-      highlightedResultId.value = null;
-    }
-  }, 2200);
-}
-
-async function openSearchResult(result: SearchResult) {
-  if (result.type === 'link' && result.url) {
-    if (result.categoryId) {
-      activeCategoryId.value = result.categoryId;
-      await nextTick();
-      focusCategory(result.categoryId);
-    }
-    const link = navigationStore.getLink(result.id);
-    if (link) {
-      flashResult(link.id);
-      await openLink(link);
-    }
-    return;
-  }
-
-  if (result.type === 'note') {
-    window.location.assign(`/notes?focus=${encodeURIComponent(result.id)}`);
-    return;
-  }
-
-  window.location.assign(`/snippets?focus=${encodeURIComponent(result.id)}`);
-}
 </script>
 
 <template>
-  <div class="page-shell page-shell-wide">
+  <div :id="overviewSectionId" class="page-shell page-shell-wide">
     <div class="nav-main-column">
-      <section :id="searchSectionId" class="panel nav-search-panel">
-        <div class="section-head">
-          <div>
-            <h2>站点搜索</h2>
-          </div>
-          <div class="section-head-actions">
-            <button v-if="isEditMode || !hasCategories" class="ghost" @click="openCategoryDialog()">
-              新增分类
-            </button>
-            <button v-if="isEditMode && hasCategories" class="primary" @click="openLinkDialog()">
-              新增站点
-            </button>
-            <button class="ghost" @click="isEditMode = !isEditMode">
-              {{ isEditMode ? '退出编辑' : '进入编辑' }}
-            </button>
-          </div>
-        </div>
-
-        <div class="nav-engine-row">
-          <button
-            v-for="(engine, key) in searchEngines"
-            :key="key"
-            class="nav-engine-chip"
-            :class="{ 'nav-engine-chip-active': searchEngine === key }"
-            @click="searchEngine = key as SearchEngineKey"
-          >
-            {{ engine.label }}
+      <div class="section-head nav-page-actions">
+        <div />
+        <div class="section-head-actions">
+          <button v-if="isEditMode || !hasCategories" class="ghost" @click="openCategoryDialog()">
+            新增分类
+          </button>
+          <button v-if="isEditMode && hasCategories" class="primary" @click="openLinkDialog()">
+            新增站点
+          </button>
+          <button class="ghost" @click="isEditMode = !isEditMode">
+            {{ isEditMode ? '退出编辑' : '进入编辑' }}
           </button>
         </div>
-
-        <form class="nav-search-form" @submit.prevent="handleSearchSubmit">
-          <input
-            v-model="searchQuery"
-            :placeholder="searchEngine === 'local' ? '搜索站内的导航、笔记和剪贴板...' : `搜索 ${searchEngines[searchEngine].label}...`"
-          />
-          <button class="primary" type="submit">{{ searchEngine === 'local' ? '搜索' : '打开' }}</button>
-        </form>
-
-        <div v-if="searchEngine === 'local' && searchQuery.trim()" class="nav-search-results">
-          <div class="section-head nav-search-results-head">
-            <div>
-              <h3>站内结果</h3>
-            </div>
-            <span class="inline-status">{{ localSearchResults.length }} 条</span>
-          </div>
-
-          <div v-if="localSearchLoading" class="empty-state">正在加载站内数据...</div>
-          <div v-else-if="localSearchResults.length === 0" class="empty-state">没有匹配结果。</div>
-          <div v-else class="nav-search-results-list">
-            <button
-              v-for="result in localSearchResults"
-              :key="`${result.type}-${result.id}`"
-              class="nav-search-result"
-              @click="openSearchResult(result)"
-            >
-              <span class="nav-search-result-type">{{ result.type }}</span>
-              <div class="nav-search-result-body">
-                <strong>{{ result.title }}</strong>
-                <p>{{ result.description }}</p>
-              </div>
-            </button>
-          </div>
-        </div>
-
-        <div class="nav-hero-grid">
-          <div class="metric-card">
-            <span>分类数量</span>
-            <strong>{{ navigationStore.categories.length }}</strong>
-          </div>
-          <div class="metric-card">
-            <span>站点数量</span>
-            <strong>{{ navigationStore.totalLinks }}</strong>
-          </div>
-          <div class="metric-card">
-            <span>笔记联搜</span>
-            <strong>{{ notesStore.notes.length }}</strong>
-          </div>
-          <div class="metric-card">
-            <span>剪贴板联搜</span>
-            <strong>{{ snippetsStore.snippets.length }}</strong>
-          </div>
-        </div>
-      </section>
+      </div>
 
       <section v-if="recentLinks.length" class="panel">
         <div class="section-head">
@@ -621,7 +399,6 @@ async function openSearchResult(result: SearchResult) {
               v-for="link in category.links"
               :key="link.id"
               class="nav-card nav-card-clickable"
-              :class="{ 'search-highlight': highlightedResultId === link.id }"
               @click="!isEditMode && openLink(link)"
             >
               <div class="nav-card-head">

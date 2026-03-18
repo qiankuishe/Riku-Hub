@@ -1184,8 +1184,12 @@ p {
   z-index: 0;
 }
 
-.nav-category-panel:hover {
+.nav-category-panel:has(.nav-card-clickable:hover) {
   z-index: 30;
+}
+
+.nav-page-actions {
+  margin-bottom: -6px;
 }
 
 .nav-card-grid {
