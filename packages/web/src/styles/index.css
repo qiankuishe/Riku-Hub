@@ -1028,7 +1028,7 @@ p {
 
 .nav-recent-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 220px));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   justify-content: start;
   align-items: start;
   gap: 12px;
@@ -1077,7 +1077,7 @@ p {
 }
 
 .nav-card-grid {
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .nav-card-grid-compact {
