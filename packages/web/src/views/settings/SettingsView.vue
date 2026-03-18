@@ -22,8 +22,6 @@ const importing = ref(false);
 const runningDangerAction = ref<DangerScope | null>(null);
 const confirmTarget = ref<DangerActionConfig | null>(null);
 
-const appearanceSectionId = 'settings-appearance';
-const systemSectionId = 'settings-system';
 const dataSectionId = 'settings-data';
 const dangerSectionId = 'settings-danger';
 const accountSectionId = 'settings-account';
@@ -31,32 +29,32 @@ const accountSectionId = 'settings-account';
 const dangerActions: DangerActionConfig[] = [
   {
     scope: 'sources',
-    title: '删除所有订阅源',
-    description: '清空订阅源列表，并让聚合缓存重新进入待刷新状态。',
-    buttonLabel: '清空订阅源'
+    title: '清空订阅源',
+    description: '清空订阅源列表，聚合缓存进入待刷新状态。',
+    buttonLabel: '清空'
   },
   {
     scope: 'navigation',
-    title: '删除所有导航内容',
-    description: '删除全部导航分类和链接，保留系统和登录状态。',
-    buttonLabel: '清空导航'
+    title: '清空导航',
+    description: '删除全部导航分类和链接。',
+    buttonLabel: '清空'
   },
   {
     scope: 'notes',
-    title: '删除所有笔记',
-    description: '删除当前站点内的全部笔记内容。',
-    buttonLabel: '清空笔记'
+    title: '清空笔记',
+    description: '删除全部笔记内容。',
+    buttonLabel: '清空'
   },
   {
     scope: 'snippets',
-    title: '删除所有片段',
-    description: '删除片段库中的文本、代码、链接和图片数据。',
-    buttonLabel: '清空片段库'
+    title: '清空片段库',
+    description: '删除文本、代码、链接和图片数据。',
+    buttonLabel: '清空'
   },
   {
     scope: 'all',
-    title: '删除所有业务数据',
-    description: '一次性清空订阅源、导航、笔记和片段库，请先导出备份。',
+    title: '全部清空',
+    description: '一次性清空所有业务数据，请先导出备份。',
     buttonLabel: '全部清空'
   }
 ];
@@ -64,11 +62,9 @@ const dangerActions: DangerActionConfig[] = [
 onMounted(() => {
   uiStore.setSecondaryNav({
     title: '系统设置',
-    activeKey: 'appearance',
+    activeKey: 'data',
     items: [
-      { key: 'appearance', label: '外观', targetId: appearanceSectionId },
-      { key: 'system', label: '系统', targetId: systemSectionId },
-      { key: 'data', label: '数据管理', targetId: dataSectionId },
+      { key: 'data', label: '数据', targetId: dataSectionId },
       { key: 'danger', label: '危险区域', targetId: dangerSectionId },
       { key: 'account', label: '账户', targetId: accountSectionId }
     ]
@@ -178,120 +174,75 @@ async function logout() {
 <template>
   <div class="page-shell page-shell-compact">
     <section class="panel compact-panel settings-panel">
-      <div class="section-head">
+      <!-- Header -->
+      <div class="section-head" style="margin-bottom: 20px;">
         <div>
           <h2>系统设置</h2>
-          <p>把主题、备份恢复和高风险操作都收口到同一页，方便集中维护。</p>
+          <p>{{ currentOrigin }}</p>
+        </div>
+        <div class="section-head-actions">
+          <button class="ghost small" @click="uiStore.toggleDarkMode">
+            {{ uiStore.darkMode ? '☀️ 浅色' : '🌙 深色' }}
+          </button>
         </div>
       </div>
 
       <div class="settings-stack">
-        <article :id="appearanceSectionId" class="settings-section-card">
-          <div class="settings-section-head">
-            <div>
-              <h3>外观</h3>
-              <p>当前主题会保存在本地浏览器中。</p>
-            </div>
-          </div>
-
-          <div class="settings-inline-grid">
-            <div class="setting-card">
-              <span>当前模式</span>
-              <strong>{{ uiStore.darkMode ? '深色模式' : '浅色模式' }}</strong>
-              <p>点击后立即切换，不需要刷新页面。</p>
-            </div>
-
-            <div class="setting-card">
-              <span>主题动作</span>
-              <strong>手动切换</strong>
-              <button class="ghost small" @click="uiStore.toggleDarkMode">切换主题</button>
-            </div>
-          </div>
-        </article>
-
-        <article :id="systemSectionId" class="settings-section-card">
-          <div class="settings-section-head">
-            <div>
-              <h3>系统信息</h3>
-              <p>展示当前部署环境和后台结构，方便你判断备份和分享链接。</p>
-            </div>
-          </div>
-
-          <div class="settings-inline-grid">
-            <div class="setting-card">
-              <span>当前域名</span>
-              <strong>{{ currentOrigin }}</strong>
-              <p>订阅链接和后台访问地址都会基于当前 HTTPS 域名生成。</p>
-            </div>
-
-            <div class="setting-card">
-              <span>后台结构</span>
-              <strong>一级板块独立页面</strong>
-              <p>导航、订阅、笔记、片段、日志和设置都按独立入口加载。</p>
-            </div>
-
-            <div class="setting-card">
-              <span>冷启动入口</span>
-              <strong>侧边栏品牌区</strong>
-              <p>点击 Riku-Hub 标识会清本地缓存并保留登录状态，按首次进入方式重载当前页。</p>
-            </div>
-          </div>
-        </article>
-
+        <!-- Data -->
         <article :id="dataSectionId" class="settings-section-card">
           <div class="settings-section-head">
             <div>
               <h3>数据管理</h3>
-              <p>导出完整备份、导入历史数据，并快速查看当前业务数据量。</p>
             </div>
           </div>
 
+          <!-- Stats -->
           <div class="settings-stat-grid">
             <div class="settings-stat-tile">
-              <strong>{{ stats?.sources ?? (loadingStats ? '...' : 0) }}</strong>
+              <strong>{{ stats?.sources ?? (loadingStats ? '…' : 0) }}</strong>
               <span>订阅源</span>
             </div>
             <div class="settings-stat-tile">
-              <strong>{{ stats?.navigationCategories ?? (loadingStats ? '...' : 0) }}</strong>
+              <strong>{{ stats?.navigationCategories ?? (loadingStats ? '…' : 0) }}</strong>
               <span>导航分类</span>
             </div>
             <div class="settings-stat-tile">
-              <strong>{{ stats?.navigationLinks ?? (loadingStats ? '...' : 0) }}</strong>
+              <strong>{{ stats?.navigationLinks ?? (loadingStats ? '…' : 0) }}</strong>
               <span>导航链接</span>
             </div>
             <div class="settings-stat-tile">
-              <strong>{{ stats?.notes ?? (loadingStats ? '...' : 0) }}</strong>
+              <strong>{{ stats?.notes ?? (loadingStats ? '…' : 0) }}</strong>
               <span>笔记</span>
             </div>
             <div class="settings-stat-tile">
-              <strong>{{ stats?.snippets ?? (loadingStats ? '...' : 0) }}</strong>
+              <strong>{{ stats?.snippets ?? (loadingStats ? '…' : 0) }}</strong>
               <span>片段</span>
             </div>
           </div>
 
+          <!-- Actions -->
           <div class="settings-action-grid">
             <button class="primary" :disabled="exporting" @click="exportBackup">
-              {{ exporting ? '导出中...' : '导出数据' }}
+              {{ exporting ? '导出中...' : '导出备份' }}
             </button>
 
             <label class="ghost settings-upload-button" :class="{ disabled: importing }">
               <input type="file" accept=".json,application/json" :disabled="importing" @change="handleImport" />
-              {{ importing ? '导入中...' : '导入数据' }}
+              {{ importing ? '导入中...' : '导入备份' }}
             </label>
 
             <button class="ghost" :disabled="loadingStats" @click="refreshStats">
               {{ loadingStats ? '刷新中...' : '刷新统计' }}
             </button>
           </div>
-
-          <p class="settings-helper-text">导入会用备份文件里的内容替换当前订阅源、导航、笔记和片段数据，建议先导出一份再继续。</p>
         </article>
 
+        <!-- Danger zone -->
         <article :id="dangerSectionId" class="settings-section-card settings-danger-section">
           <div class="settings-section-head">
             <div>
               <h3>危险区域</h3>
-              <p>下面的操作不可撤销，适合做彻底清理或导入前的预处理。</p>
+              <p>以下操作不可撤销，建议先导出备份。</p>
             </div>
           </div>
 
@@ -302,26 +253,27 @@ async function logout() {
                 <p>{{ action.description }}</p>
               </div>
 
-              <button class="ghost small danger" :disabled="runningDangerAction === action.scope" @click="openDangerConfirm(action)">
+              <button
+                class="ghost small danger"
+                :disabled="runningDangerAction === action.scope"
+                @click="openDangerConfirm(action)"
+              >
                 {{ runningDangerAction === action.scope ? '处理中...' : action.buttonLabel }}
               </button>
             </div>
           </div>
         </article>
 
+        <!-- Account -->
         <article :id="accountSectionId" class="settings-section-card">
           <div class="settings-section-head">
-            <div>
-              <h3>账户</h3>
-              <p>当前版本先保留最基础的会话管理入口。</p>
-            </div>
+            <div><h3>账户</h3></div>
           </div>
 
           <div class="settings-account-row">
             <div class="setting-card">
-              <span>会话操作</span>
-              <strong>退出当前登录</strong>
-              <p>退出后会跳回登录页，本地冷启动按钮不会影响登录 Cookie。</p>
+              <span>当前域名</span>
+              <strong>{{ currentOrigin }}</strong>
             </div>
 
             <button class="ghost danger" @click="logout">退出登录</button>
@@ -330,21 +282,21 @@ async function logout() {
       </div>
     </section>
 
+    <!-- Danger confirm dialog -->
     <div v-if="confirmTarget" class="modal-backdrop" @click.self="closeDangerConfirm">
       <div class="modal-card compact-modal-card panel">
         <div class="section-head">
           <div>
             <h2>{{ confirmTarget.title }}</h2>
-            <p>这项操作会直接改动线上数据，请确认你已经完成备份。</p>
           </div>
         </div>
 
-        <p class="confirm-text">{{ confirmTarget.description }}</p>
+        <p class="confirm-text">{{ confirmTarget.description }}此操作不可撤销，确认继续？</p>
 
         <div class="dialog-actions">
           <button class="ghost" :disabled="Boolean(runningDangerAction)" @click="closeDangerConfirm">取消</button>
           <button class="primary danger-fill" :disabled="Boolean(runningDangerAction)" @click="runDangerAction">
-            {{ runningDangerAction ? '处理中...' : '确认继续' }}
+            {{ runningDangerAction ? '处理中...' : '确认' }}
           </button>
         </div>
       </div>
