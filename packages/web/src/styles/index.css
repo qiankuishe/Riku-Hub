@@ -983,22 +983,68 @@ p {
   font-weight: 700;
 }
 
+.notes-hero-panel,
+.notes-sidebar-panel,
+.notes-editor-panel,
+.notes-group,
+.notes-hero-copy,
+.notes-editor-pane,
+.notes-preview-pane {
+  display: grid;
+  gap: 14px;
+}
+
 .notes-layout {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: 320px minmax(0, 1fr);
   gap: 18px;
   align-items: start;
 }
 
-.notes-sidebar-panel,
-.notes-editor-panel {
-  width: 100%;
+.notes-hero-head,
+.notes-editor-head {
+  align-items: flex-start;
+}
+
+.notes-hero-grid {
+  margin-top: 4px;
+}
+
+.notes-sidebar-panel {
+  position: sticky;
+  top: 24px;
+}
+
+.notes-search-field {
+  gap: 10px;
+}
+
+.notes-groups {
+  display: grid;
+  gap: 18px;
+}
+
+.notes-group-head,
+.notes-editor-meta,
+.notes-markdown-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.notes-group-empty {
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px dashed var(--line);
+  color: var(--text-soft);
 }
 
 .note-list-item {
   width: 100%;
   display: grid;
-  gap: 8px;
+  gap: 10px;
   padding: 14px;
   text-align: left;
   border-radius: 20px;
@@ -1029,6 +1075,38 @@ p {
 .inline-status {
   color: var(--text-soft);
   font-size: 13px;
+}
+
+.notes-editor-meta {
+  padding: 0 2px;
+}
+
+.notes-markdown-toolbar {
+  padding: 12px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.42);
+  justify-content: flex-start;
+}
+
+.note-view-button-active {
+  border-color: rgba(160, 98, 45, 0.45);
+  background: rgba(160, 98, 45, 0.1);
+  color: var(--accent-strong);
+}
+
+.notes-editor-surface {
+  display: grid;
+  gap: 16px;
+}
+
+.notes-editor-surface-split {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr);
+  align-items: start;
+}
+
+.notes-content-field textarea {
+  min-height: 420px;
 }
 
 .markdown-preview {
@@ -1451,6 +1529,10 @@ html.dark .clipboard-type-image {
     grid-template-columns: 1fr;
   }
 
+  .notes-editor-surface-split {
+    grid-template-columns: 1fr;
+  }
+
   .compact-panel,
   .subscriptions-layout,
   .snippet-filter {
@@ -1461,7 +1543,10 @@ html.dark .clipboard-type-image {
   .source-card,
   .snippet-toolbar,
   .clipboard-compose-footer,
-  .clipboard-section-head {
+  .clipboard-section-head,
+  .notes-group-head,
+  .notes-editor-meta,
+  .notes-markdown-toolbar {
     flex-direction: column;
   }
 
@@ -1478,5 +1563,9 @@ html.dark .clipboard-type-image {
   .clipboard-editor-type-grid,
   .clipboard-editor-layout {
     grid-template-columns: 1fr;
+  }
+
+  .notes-sidebar-panel {
+    position: static;
   }
 }
