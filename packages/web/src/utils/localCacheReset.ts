@@ -1,28 +1,9 @@
-import { clearFaviconCache } from './faviconCache';
-
-async function clearCacheStorage() {
-  if (typeof window === 'undefined' || typeof window.caches === 'undefined') {
-    return;
-  }
-
-  try {
-    const keys = await window.caches.keys();
-    await Promise.allSettled(keys.map((key) => window.caches.delete(key)));
-  } catch {
-    // ignore cache storage failures
-  }
-}
-
-export async function clearAppLocalCache() {
+export function restartCurrentSection() {
   if (typeof window === 'undefined') {
     return;
   }
 
-  try {
-    window.localStorage.clear();
-  } catch {
-    // ignore localStorage failures
-  }
+  const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
 
   try {
     window.sessionStorage.clear();
@@ -30,15 +11,9 @@ export async function clearAppLocalCache() {
     // ignore sessionStorage failures
   }
 
-  await Promise.allSettled([clearFaviconCache(), clearCacheStorage()]);
-}
-
-export async function clearAppLocalCacheAndReload() {
-  if (typeof window === 'undefined') {
-    return;
+  if ('clearResourceTimings' in window.performance) {
+    window.performance.clearResourceTimings();
   }
 
-  const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-  await clearAppLocalCache();
-  window.location.replace(currentUrl);
+  window.location.replace(`/reset?return=${encodeURIComponent(currentUrl)}`);
 }

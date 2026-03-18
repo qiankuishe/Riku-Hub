@@ -725,6 +725,7 @@ function resolvePageAssetPath(request: Request): string | null {
 
   const pageMap: Record<string, string> = {
     '/': '/index.html',
+    '/reset': '/reset.html',
     '/login': '/login.html',
     '/nav': '/nav.html',
     '/subscriptions': '/subscriptions.html',
