@@ -58,6 +58,9 @@ const dragSourceCategoryId = ref('');
 const dropCategoryId = ref('');
 const dropLinkId = ref('');
 const dropPlacement = ref<'before' | 'after' | ''>('');
+const draggingCategoryId = ref('');
+const dropCategoryCardId = ref('');
+const dropCategoryPlacement = ref<'before' | 'after' | ''>('');
 
 const overviewSectionId = 'v3-nav-overview';
 
@@ -473,6 +476,69 @@ async function performLinkDrop(targetCategoryId: string, targetLinkId: string | 
     onLinkDragEnd();
   }
 }
+
+function onCategoryCardDragStart(event: DragEvent, categoryId: string) {
+  if (!editMode.value) {
+    return;
+  }
+  draggingCategoryId.value = categoryId;
+  dropCategoryCardId.value = '';
+  dropCategoryPlacement.value = '';
+  event.dataTransfer?.setData('text/plain', categoryId);
+  event.dataTransfer!.effectAllowed = 'move';
+}
+
+function onCategoryCardDragEnd() {
+  draggingCategoryId.value = '';
+  dropCategoryCardId.value = '';
+  dropCategoryPlacement.value = '';
+}
+
+function onCategoryCardDragOver(event: DragEvent, categoryId: string) {
+  if (!editMode.value || !draggingCategoryId.value || draggingCategoryId.value === categoryId) {
+    return;
+  }
+  const element = event.currentTarget as HTMLElement | null;
+  const rect = element?.getBoundingClientRect();
+  const after = rect ? event.clientY - rect.top > rect.height / 2 : false;
+  dropCategoryCardId.value = categoryId;
+  dropCategoryPlacement.value = after ? 'after' : 'before';
+}
+
+async function onCategoryCardDrop(event: DragEvent, categoryId: string) {
+  if (!editMode.value) {
+    return;
+  }
+  const sourceCategoryId = draggingCategoryId.value;
+  if (!sourceCategoryId || sourceCategoryId === categoryId) {
+    onCategoryCardDragEnd();
+    return;
+  }
+
+  const ids = categories.value.map((category) => category.id).filter((id) => id !== sourceCategoryId);
+  const targetIndex = ids.indexOf(categoryId);
+  if (targetIndex < 0) {
+    onCategoryCardDragEnd();
+    return;
+  }
+
+  const element = event.currentTarget as HTMLElement | null;
+  const rect = element?.getBoundingClientRect();
+  const after = rect ? event.clientY - rect.top > rect.height / 2 : dropCategoryPlacement.value === 'after';
+  const insertIndex = Math.max(0, targetIndex + (after ? 1 : 0));
+  ids.splice(insertIndex, 0, sourceCategoryId);
+
+  try {
+    await navigationApi.reorderCategories(ids);
+    uiStore.showToast('分类顺序已更新');
+    await loadAll();
+  } catch (error) {
+    uiStore.showToast(error instanceof Error ? error.message : '分类排序更新失败');
+    await loadAll();
+  } finally {
+    onCategoryCardDragEnd();
+  }
+}
 </script>
 
 <template>
@@ -557,7 +623,17 @@ async function performLinkDrop(targetCategoryId: string, targetLinkId: string | 
         @dragover="onCategoryDragOver($event, category.id)"
         @drop="onCategoryDropZone($event, category.id)"
       >
-        <section class="v3-card" :id="getCategorySectionId(category.id)">
+        <section
+          class="v3-card"
+          :class="{
+            'v3-category-card-dragging': draggingCategoryId === category.id,
+            'v3-category-card-drop-before': dropCategoryCardId === category.id && dropCategoryPlacement === 'before',
+            'v3-category-card-drop-after': dropCategoryCardId === category.id && dropCategoryPlacement === 'after'
+          }"
+          :id="getCategorySectionId(category.id)"
+          @dragover.prevent="onCategoryCardDragOver($event, category.id)"
+          @drop.prevent="onCategoryCardDrop($event, category.id)"
+        >
           <div class="v3-card-head">
             <div>
               <h3 class="v3-card-title">
@@ -565,6 +641,18 @@ async function performLinkDrop(targetCategoryId: string, targetLinkId: string | 
               </h3>
             </div>
             <div v-if="editMode" class="v3-inline-actions">
+              <button
+                class="v3-category-drag-handle"
+                type="button"
+                title="拖拽排序分类"
+                draggable="true"
+                @dragstart="onCategoryCardDragStart($event, category.id)"
+                @dragend="onCategoryCardDragEnd"
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M9 3h2v2H9V3zm0 4h2v2H9V7zm0 4h2v2H9v-2zm0 4h2v2H9v-2zm0 4h2v2H9v-2zm4-16h2v2h-2V3zm0 4h2v2h-2V7zm0 4h2v2h-2v-2zm0 4h2v2h-2v-2zm0 4h2v2h-2v-2z"/>
+                </svg>
+              </button>
               <UiButton size="sm" variant="secondary" @click="openLinkDialog(undefined, category.id)">新增链接</UiButton>
               <UiButton size="sm" variant="tertiary" @click="openCategoryDialog(category)">编辑分类</UiButton>
               <UiButton size="sm" variant="danger" @click="deleteCategoryTarget = category">删除分类</UiButton>
