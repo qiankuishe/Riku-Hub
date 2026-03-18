@@ -81,17 +81,17 @@ async function revealGroup(itemTo: string) {
 }
 
 async function handlePrimaryClick(itemTo: string) {
-  if (isCurrent(itemTo) && props.secondaryItems.length) {
-    const willCollapse = uiStore.expandedSidebarSection === itemTo;
-    uiStore.toggleSidebarSection(itemTo);
-    if (!willCollapse) {
-      await revealGroup(itemTo);
-    }
-    return;
-  }
-
   if (!isCurrent(itemTo)) {
     window.location.assign(itemTo);
+  }
+}
+
+async function handleChevronClick(event: Event, itemTo: string) {
+  event.stopPropagation();
+  const willCollapse = uiStore.expandedSidebarSection === itemTo;
+  uiStore.toggleSidebarSection(itemTo);
+  if (!willCollapse) {
+    await revealGroup(itemTo);
   }
 }
 
@@ -142,9 +142,11 @@ watch(
             </svg>
           </span>
           <span class="sidebar-nav-label">{{ item.label }}</span>
-          <span
+          <button
             v-if="isCurrent(item.to) && secondaryItems.length"
+            type="button"
             class="sidebar-nav-chevron"
+            @click="(e) => handleChevronClick(e, item.to)"
           >
             <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14" aria-hidden="true">
               <path
@@ -153,7 +155,7 @@ watch(
               />
               <path v-else d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z" />
             </svg>
-          </span>
+          </button>
         </button>
 
         <!-- Sub-items -->

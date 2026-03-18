@@ -472,6 +472,7 @@ p {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  flex-shrink: 0;
 }
 
 /* ── YouTube-style nav item ── */
@@ -480,6 +481,8 @@ p {
   align-items: center;
   gap: 14px;
   width: 100%;
+  min-height: 52px;
+  height: 52px;
   padding: 13px 16px;
   border: none;
   border-radius: 12px;
@@ -540,9 +543,23 @@ p {
 .sidebar-nav-chevron {
   display: flex;
   align-items: center;
+  justify-content: center;
   flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
   color: var(--text-soft);
   opacity: 0.7;
+  cursor: pointer;
+  transition: background 0.13s ease, opacity 0.13s ease;
+}
+
+.sidebar-nav-chevron:hover {
+  background: rgba(160, 98, 45, 0.12);
+  opacity: 1;
 }
 
 /* ── Sub-menu ── */
