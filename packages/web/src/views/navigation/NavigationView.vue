@@ -55,7 +55,7 @@ const errorMessage = ref('');
 const searchSectionId = 'nav-search-root';
 const localSearchReady = ref(false);
 const localSearchLoading = ref(false);
-const NAV_URL_DISPLAY_MAX_LENGTH = 18;
+const NAV_URL_DISPLAY_MAX_LENGTH = 25;
 const NAV_DESCRIPTION_MAX_LENGTH = 17;
 
 const recentLinks = computed(() => navigationStore.recentLinks.slice(0, 8));
@@ -290,7 +290,7 @@ function formatNavigationTitle(value: string) {
   }
 
   const hasCjk = /[\u3400-\u9fff]/.test(trimmed);
-  const maxLength = hasCjk ? 5 : 10;
+  const maxLength = hasCjk ? 9 : 16;
   if (trimmed.length <= maxLength) {
     return trimmed;
   }
@@ -641,7 +641,6 @@ async function openSearchResult(result: SearchResult) {
                     <p class="nav-link-url" :title="link.url">{{ formatNavigationUrlDisplay(link.url) }}</p>
                   </div>
                 </div>
-                <a v-if="!isEditMode" :href="link.url" target="_blank" rel="noreferrer" @click.stop>打开</a>
               </div>
 
               <p class="nav-card-description" :title="link.description || '暂无说明'">{{ formatNavigationDescription(link.description) }}</p>
