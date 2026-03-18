@@ -270,13 +270,15 @@ async function logout() {
             <div><h3>账户</h3></div>
           </div>
 
-          <div class="settings-account-row">
-            <div class="setting-card">
+          <div class="settings-account-stack">
+            <div class="setting-card settings-account-card">
               <span>当前域名</span>
               <strong>{{ currentOrigin }}</strong>
             </div>
 
-            <button class="ghost danger" @click="logout">退出登录</button>
+            <div class="settings-account-actions">
+              <button class="ghost danger" @click="logout">退出登录</button>
+            </div>
           </div>
         </article>
       </div>

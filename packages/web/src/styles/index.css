@@ -352,8 +352,8 @@ p {
   box-sizing: border-box;
   border-radius: 0 28px 28px 0;
   border-left: none;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 0;
   overflow: hidden;
   flex-shrink: 0;
@@ -411,7 +411,7 @@ p {
 }
 
 .main-sidebar .sidebar-nav {
-  flex: 1 1 0;
+  height: 100%;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
@@ -815,8 +815,7 @@ p {
   gap: 12px;
 }
 
-.settings-danger-row,
-.settings-account-row {
+.settings-danger-row {
   display: flex;
   justify-content: space-between;
   gap: 14px;
@@ -839,12 +838,18 @@ p {
   line-height: 1.35;
 }
 
-.settings-account-row {
-  align-items: stretch;
+.settings-account-stack {
+  display: grid;
+  gap: 12px;
 }
 
-.settings-account-row .setting-card {
-  flex: 1;
+.settings-account-card {
+  width: 100%;
+}
+
+.settings-account-actions {
+  display: flex;
+  justify-content: flex-start;
 }
 
 .link-list,
