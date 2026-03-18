@@ -1173,14 +1173,18 @@ p {
 .nav-sections-panel {
   display: grid;
   gap: 18px;
+  overflow: visible;
 }
 
 .nav-category-panel {
   scroll-margin-top: 90px;
+  position: relative;
+  overflow: visible;
 }
 
 .nav-card-grid {
   grid-template-columns: repeat(5, minmax(0, 1fr));
+  overflow: visible;
 }
 
 .nav-card-grid-compact {
@@ -1196,6 +1200,11 @@ p {
 
 .nav-card-clickable {
   cursor: pointer;
+  z-index: 0;
+}
+
+.nav-card-clickable:hover {
+  z-index: 20;
 }
 
 .snippet-link {
