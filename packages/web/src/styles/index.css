@@ -415,7 +415,7 @@ p {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 4px 0 24px;
+  padding: 4px 0 40px;
   scrollbar-gutter: stable;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
@@ -426,7 +426,7 @@ p {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 0 0 14px;
+  padding: 0 0 24px;
   scrollbar-gutter: stable;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
