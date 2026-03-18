@@ -411,6 +411,7 @@ p {
   overflow-y: auto;
   overflow-x: hidden;
   padding: 4px 0 18px;
+  scrollbar-gutter: stable;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   scroll-behavior: smooth;

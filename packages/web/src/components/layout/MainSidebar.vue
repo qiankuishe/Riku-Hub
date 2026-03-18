@@ -17,6 +17,7 @@ const emit = defineEmits<{
 }>();
 
 const groupRefs = ref<Record<string, HTMLElement | null>>({});
+const navRef = ref<HTMLElement | null>(null);
 
 function isCurrent(itemTo: string) {
   return props.currentPath.startsWith(itemTo);
@@ -26,11 +27,36 @@ function setGroupRef(itemTo: string, element: unknown) {
   groupRefs.value[itemTo] = element instanceof HTMLElement ? element : null;
 }
 
+function setNavRef(element: unknown) {
+  navRef.value = element instanceof HTMLElement ? element : null;
+}
+
 async function revealGroup(itemTo: string) {
   await nextTick();
-  groupRefs.value[itemTo]?.scrollIntoView({
-    behavior: 'smooth',
-    block: 'nearest'
+  const nav = navRef.value;
+  const group = groupRefs.value[itemTo];
+  if (!nav || !group) {
+    return;
+  }
+
+  const navRect = nav.getBoundingClientRect();
+  const groupRect = group.getBoundingClientRect();
+  const topPadding = 10;
+  const bottomPadding = 12;
+  const isAbove = groupRect.top < navRect.top + topPadding;
+  const isBelow = groupRect.bottom > navRect.bottom - bottomPadding;
+
+  if (!isAbove && !isBelow) {
+    return;
+  }
+
+  const delta = isAbove
+    ? groupRect.top - navRect.top - topPadding
+    : groupRect.bottom - navRect.bottom + bottomPadding;
+
+  nav.scrollTo({
+    top: nav.scrollTop + delta,
+    behavior: 'smooth'
   });
 }
 
@@ -74,7 +100,7 @@ watch(
       <span class="sidebar-brand-name">Riku-Hub</span>
     </button>
 
-    <nav class="sidebar-nav">
+    <nav :ref="setNavRef" class="sidebar-nav">
       <div
         v-for="item in APP_NAV_ITEMS"
         :key="item.to"
