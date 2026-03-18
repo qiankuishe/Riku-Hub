@@ -850,34 +850,6 @@ async function handleEditorImageUpload(event: Event) {
         </div>
 
         <div class="clipboard-editor-layout">
-          <div class="clipboard-editor-aside">
-            <div class="clipboard-editor-summary" :data-snippet-type="formType">
-              <div class="clipboard-card-tags">
-                <span class="clipboard-type-badge" :class="getSnippetTypeClass(formType)">{{ getSnippetTypeLabel(formType) }}</span>
-                <span class="inline-status">{{ editorMetaText }}</span>
-              </div>
-              <strong>{{ formTitle.trim() || '未命名剪贴内容' }}</strong>
-              <p>
-                {{
-                  formType === 'image'
-                    ? '图片内容会直接保存为可预览格式。'
-                    : formType === 'link'
-                      ? '链接会在列表里以可点击卡片展示。'
-                      : formType === 'code'
-                        ? '代码会保留换行和缩进。'
-                        : '文本适合保存便签、话术和临时内容。'
-                }}
-              </p>
-            </div>
-
-            <div class="validation-box clipboard-editor-tips">
-              <strong>编辑建议</strong>
-              <p>标题尽量写成你之后一眼能认出的名字。</p>
-              <p>如果是链接或图片，优先用对应类型，列表展示会更清晰。</p>
-              <p>需要快速替换内容时，可以直接点右上角“读入剪贴板”。</p>
-            </div>
-          </div>
-
           <div class="editor-form">
             <div class="field">
               <span>内容类型</span>
@@ -913,10 +885,6 @@ async function handleEditorImageUpload(event: Event) {
                 :placeholder="formType === 'link' ? 'https://example.com' : formType === 'image' ? '可直接上传图片或读取剪贴板图片' : '输入内容'"
               ></textarea>
             </label>
-
-            <div class="clipboard-compose-footer clipboard-editor-footer">
-              <span class="inline-status">{{ editorMetaText }}</span>
-            </div>
 
             <p v-if="errorMessage" class="error-banner">{{ errorMessage }}</p>
           </div>
