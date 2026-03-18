@@ -85,8 +85,11 @@ async function revealGroup(itemTo: string) {
 
 async function handlePrimaryClick(itemTo: string) {
   if (isCurrent(itemTo) && props.secondaryItems.length) {
-    uiStore.expandSidebarSection(itemTo);
-    await revealGroup(itemTo);
+    const willCollapse = uiStore.expandedSidebarSection === itemTo;
+    uiStore.toggleSidebarSection(itemTo);
+    if (!willCollapse) {
+      await revealGroup(itemTo);
+    }
     return;
   }
 
