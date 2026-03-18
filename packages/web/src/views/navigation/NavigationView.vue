@@ -101,12 +101,12 @@ const localSearchResults = computed<SearchResult[]>(() => {
   }
 
   for (const snippet of snippetsStore.snippets) {
-    const contentPreview = snippet.type === 'image' ? '[图片片段]' : snippet.content;
+    const contentPreview = snippet.type === 'image' ? '[图片剪贴]' : snippet.content;
     if (snippet.title.toLowerCase().includes(query) || contentPreview.toLowerCase().includes(query)) {
       results.push({
         type: 'snippet',
         id: snippet.id,
-        title: snippet.title || '未命名片段',
+        title: snippet.title || '未命名剪贴内容',
         description: `${snippet.type} · ${contentPreview.slice(0, 72) || '暂无内容'}`
       });
     }
@@ -419,7 +419,7 @@ async function openSearchResult(result: SearchResult) {
         <form class="nav-search-form" @submit.prevent="handleSearchSubmit">
           <input
             v-model="searchQuery"
-            :placeholder="searchEngine === 'local' ? '搜索站内的导航、笔记和片段...' : `搜索 ${searchEngines[searchEngine].label}...`"
+            :placeholder="searchEngine === 'local' ? '搜索站内的导航、笔记和剪贴板...' : `搜索 ${searchEngines[searchEngine].label}...`"
           />
           <button class="primary" type="submit">{{ searchEngine === 'local' ? '搜索' : '打开' }}</button>
         </form>
@@ -463,7 +463,7 @@ async function openSearchResult(result: SearchResult) {
             <strong>{{ notesStore.notes.length }}</strong>
           </div>
           <div class="metric-card">
-            <span>片段联搜</span>
+            <span>剪贴板联搜</span>
             <strong>{{ snippetsStore.snippets.length }}</strong>
           </div>
         </div>

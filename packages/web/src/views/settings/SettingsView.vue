@@ -60,7 +60,7 @@ async function logout() {
         <article class="setting-card">
           <span>后台结构</span>
           <strong>6 个一级页面</strong>
-          <p>导航、订阅、笔记、片段、日志和设置共用一套后台框架。</p>
+          <p>导航、订阅、笔记、剪贴板、日志和设置共用一套后台框架。</p>
         </article>
 
         <article :id="accountSectionId" class="setting-card">

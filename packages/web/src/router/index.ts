@@ -56,7 +56,7 @@ const routes: RouteRecordRaw[] = [
         component: () => import('../views/snippets/SnippetsView.vue'),
         meta: {
           requiresAuth: true,
-          title: '片段库',
+          title: '剪贴板',
           subtitle: ''
         }
       },

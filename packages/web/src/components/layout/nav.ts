@@ -17,7 +17,7 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     to: '/app/notes'
   },
   {
-    label: '片段库',
+    label: '剪贴板',
     to: '/app/snippets'
   },
   {
