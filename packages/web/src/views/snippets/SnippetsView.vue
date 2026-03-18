@@ -851,22 +851,6 @@ async function handleEditorImageUpload(event: Event) {
 
         <div class="clipboard-editor-layout">
           <div class="editor-form">
-            <div class="field">
-              <span>内容类型</span>
-              <div class="clipboard-type-grid clipboard-editor-type-grid">
-                <button
-                  v-for="option in typeOptions"
-                  :key="option.key"
-                  type="button"
-                  class="clipboard-type-button"
-                  :class="[getSnippetTypeClass(option.key), { 'clipboard-type-button-active': formType === option.key }]"
-                  @click="formType = option.key"
-                >
-                  {{ option.label }}
-                </button>
-              </div>
-            </div>
-
             <label class="field">
               <span>标题</span>
               <input v-model="formTitle" placeholder="默认会按内容自动命名" />
