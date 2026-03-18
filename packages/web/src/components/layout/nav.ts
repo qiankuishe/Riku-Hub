@@ -1,38 +1,38 @@
 export interface AppNavItem {
-  shortLabel: string;
   label: string;
   to: string;
+  caption: string;
 }
 
 export const APP_NAV_ITEMS: AppNavItem[] = [
   {
-    shortLabel: '导航',
     label: '网站导航',
-    to: '/app/nav'
+    to: '/app/nav',
+    caption: '入口页'
   },
   {
-    shortLabel: '订阅',
     label: '订阅聚合',
-    to: '/app/subscriptions'
+    to: '/app/subscriptions',
+    caption: '核心功能'
   },
   {
-    shortLabel: '笔记',
     label: '笔记',
-    to: '/app/notes'
+    to: '/app/notes',
+    caption: '双栏笔记本'
   },
   {
-    shortLabel: '片段',
     label: '片段库',
-    to: '/app/snippets'
+    to: '/app/snippets',
+    caption: '长期资料库'
   },
   {
-    shortLabel: '日志',
     label: '运行日志',
-    to: '/app/logs'
+    to: '/app/logs',
+    caption: '状态追踪'
   },
   {
-    shortLabel: '设置',
     label: '系统设置',
-    to: '/app/settings'
+    to: '/app/settings',
+    caption: '偏好与信息'
   }
 ];

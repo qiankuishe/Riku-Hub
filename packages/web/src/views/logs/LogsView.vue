@@ -1,35 +1,18 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, watch } from 'vue';
+import { onMounted, onUnmounted } from 'vue';
 import { useLogsStore } from '../../stores/logs';
 import { useUiStore } from '../../stores/ui';
 import { formatDateTime } from '../../utils/date';
 
 const logsStore = useLogsStore();
 const uiStore = useUiStore();
-const logsSectionId = 'logs-list';
 
 onMounted(() => {
-  uiStore.setSecondaryNav({
-    title: '运行日志',
-    activeKey: 'recent',
-    items: [{ key: 'recent', label: '最近日志', badge: String(logsStore.logs.length), targetId: logsSectionId }]
-  });
+  uiStore.clearSecondaryNav();
   if (logsStore.logs.length === 0) {
     void logsStore.loadRecent(50);
   }
 });
-
-watch(
-  () => logsStore.logs.length,
-  (count) => {
-    uiStore.setSecondaryNav({
-      title: '运行日志',
-      activeKey: 'recent',
-      items: [{ key: 'recent', label: '最近日志', badge: String(count), targetId: logsSectionId }]
-    });
-  },
-  { immediate: true }
-);
 
 onUnmounted(() => {
   uiStore.clearSecondaryNav();
@@ -49,7 +32,7 @@ onUnmounted(() => {
       </div>
 
       <div v-if="logsStore.logs.length === 0" class="empty-state">暂无日志。</div>
-      <div :id="logsSectionId" v-else class="log-list">
+      <div v-else class="log-list">
         <article v-for="log in logsStore.logs" :key="log.id" class="log-item">
           <div class="log-head">
             <strong>{{ log.action }}</strong>

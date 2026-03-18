@@ -22,8 +22,6 @@ const deleteTargetId = ref<string | null>(null);
 const highlightedNoteId = ref<string | null>(null);
 let saveTimer: number | undefined;
 let hydrating = false;
-const listSectionId = 'notes-list';
-const editorSectionId = 'notes-editor';
 
 const selectedNote = computed(() => notesStore.notes.find((note) => note.id === selectedNoteId.value) ?? null);
 const renderedPreview = computed(() => DOMPurify.sanitize(marked.parse(editContent.value) as string));
@@ -61,31 +59,9 @@ watch([editTitle, editContent], () => {
 });
 
 onMounted(() => {
-  uiStore.setSecondaryNav({
-    title: '笔记',
-    activeKey: 'list',
-    items: [
-      { key: 'list', label: '笔记列表', badge: String(notesStore.notes.length), targetId: listSectionId },
-      { key: 'editor', label: '编辑区', targetId: editorSectionId }
-    ]
-  });
+  uiStore.clearSecondaryNav();
   void notesStore.loadAll();
 });
-
-watch(
-  () => notesStore.notes.length,
-  (count) => {
-    uiStore.setSecondaryNav({
-      title: '笔记',
-      activeKey: uiStore.secondaryNavActiveKey || 'list',
-      items: [
-        { key: 'list', label: '笔记列表', badge: String(count), targetId: listSectionId },
-        { key: 'editor', label: '编辑区', targetId: editorSectionId }
-      ]
-    });
-  },
-  { immediate: true }
-);
 
 onUnmounted(() => {
   uiStore.clearSecondaryNav();
@@ -170,7 +146,7 @@ async function confirmDelete() {
 <template>
   <div class="page-shell page-shell-wide">
     <div class="notes-layout">
-      <section :id="listSectionId" class="panel notes-sidebar-panel">
+      <section class="panel notes-sidebar-panel">
         <div class="section-head">
           <div>
             <h2>笔记列表</h2>
@@ -200,7 +176,7 @@ async function confirmDelete() {
         </div>
       </section>
 
-      <section :id="editorSectionId" class="panel notes-editor-panel">
+      <section class="panel notes-editor-panel">
         <div v-if="!selectedNote" class="empty-state">请选择一条笔记开始编辑。</div>
         <template v-else>
           <div class="section-head">

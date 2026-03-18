@@ -4,7 +4,6 @@ import { useRoute, useRouter } from 'vue-router';
 import AppTopbar from '../components/layout/AppTopbar.vue';
 import MainSidebar from '../components/layout/MainSidebar.vue';
 import MobileNavDrawer from '../components/layout/MobileNavDrawer.vue';
-import SecondarySidebar from '../components/layout/SecondarySidebar.vue';
 import { type SecondaryNavItem, useUiStore } from '../stores/ui';
 
 const route = useRoute();
@@ -47,13 +46,12 @@ async function handleSecondarySelect(item: SecondaryNavItem) {
       </div>
     </transition>
 
-    <MainSidebar class="desktop-only" :current-path="route.path" />
-
-    <SecondarySidebar
-      :title="uiStore.secondaryNavTitle || title"
-      :items="uiStore.secondaryNavItems"
-      :active-key="uiStore.secondaryNavActiveKey"
-      @select="handleSecondarySelect"
+    <MainSidebar
+      class="desktop-only"
+      :current-path="route.path"
+      :secondary-items="uiStore.secondaryNavItems"
+      :secondary-active-key="uiStore.secondaryNavActiveKey"
+      @select-secondary="handleSecondarySelect"
     />
 
     <div class="app-shell-main">

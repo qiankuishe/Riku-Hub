@@ -22,8 +22,6 @@ const formContent = ref('');
 const errorMessage = ref('');
 const highlightedSnippetId = ref<string | null>(null);
 let searchTimer: number | undefined;
-const toolbarSectionId = 'snippets-toolbar';
-const listSectionId = 'snippets-list';
 
 const filteredLabel = computed(() => (filterType.value === 'all' ? '全部' : filterType.value));
 
@@ -43,6 +41,7 @@ onMounted(() => {
   if (typeof route.query.type === 'string' && ['all', 'text', 'code', 'link', 'image'].includes(route.query.type)) {
     filterType.value = route.query.type as SnippetType | 'all';
   }
+  uiStore.clearSecondaryNav();
   void snippetsStore.loadAll({ type: filterType.value, q: searchQuery.value });
 });
 
@@ -53,12 +52,12 @@ watch(
       title: '片段库',
       activeKey: activeType,
       items: [
-        { key: 'all', label: '全部', targetId: toolbarSectionId },
+        { key: 'all', label: '全部', to: '/app/snippets' },
         { key: 'text', label: '文本', to: '/app/snippets?type=text' },
         { key: 'code', label: '代码', to: '/app/snippets?type=code' },
         { key: 'link', label: '链接', to: '/app/snippets?type=link' },
         { key: 'image', label: '图片', to: '/app/snippets?type=image' },
-        { key: 'list', label: '结果', badge: String(count), targetId: listSectionId }
+        { key: 'count', label: '结果数', badge: String(count) }
       ]
     });
   },
@@ -184,7 +183,7 @@ function handleImageUpload(event: Event) {
 
 <template>
   <div class="page-shell page-shell-wide">
-    <section :id="toolbarSectionId" class="panel">
+    <section class="panel">
       <div class="section-head">
         <div>
           <h2>片段库</h2>
@@ -222,7 +221,7 @@ function handleImageUpload(event: Event) {
       </div>
 
       <div v-if="snippetsStore.snippets.length === 0" class="empty-state">当前筛选下还没有片段。</div>
-      <div :id="listSectionId" v-else class="snippet-grid">
+      <div v-else class="snippet-grid">
         <article
           v-for="snippet in snippetsStore.snippets"
           :key="snippet.id"
