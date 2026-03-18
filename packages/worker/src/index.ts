@@ -215,108 +215,86 @@ const CACHE_KEYS = {
   favicon: (hostname: string) => `favicon:${hostname}`
 };
 
-const D1_SCHEMA_SQL = `
-CREATE TABLE IF NOT EXISTS navigation_categories (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  sort_order INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS navigation_links (
-  id TEXT PRIMARY KEY,
-  category_id TEXT NOT NULL,
-  title TEXT NOT NULL,
-  url TEXT NOT NULL,
-  description TEXT NOT NULL DEFAULT '',
-  sort_order INTEGER NOT NULL DEFAULT 0,
-  visit_count INTEGER NOT NULL DEFAULT 0,
-  last_visited_at TEXT,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
-  FOREIGN KEY (category_id) REFERENCES navigation_categories(id) ON DELETE CASCADE
-);
-
-CREATE INDEX IF NOT EXISTS idx_navigation_links_category_sort
-  ON navigation_links(category_id, sort_order);
-
-CREATE TABLE IF NOT EXISTS notes (
-  id TEXT PRIMARY KEY,
-  title TEXT NOT NULL,
-  content TEXT NOT NULL DEFAULT '',
-  is_pinned INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_notes_sort
-  ON notes(is_pinned DESC, updated_at DESC);
-
-CREATE TABLE IF NOT EXISTS snippets (
-  id TEXT PRIMARY KEY,
-  type TEXT NOT NULL,
-  title TEXT NOT NULL,
-  content TEXT NOT NULL DEFAULT '',
-  is_pinned INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_snippets_sort
-  ON snippets(is_pinned DESC, updated_at DESC);
-
-CREATE TABLE IF NOT EXISTS app_logs (
-  id TEXT PRIMARY KEY,
-  action TEXT NOT NULL,
-  detail TEXT,
-  created_at TEXT NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_app_logs_created_at
-  ON app_logs(created_at DESC);
-
-CREATE TABLE IF NOT EXISTS app_meta (
-  key TEXT PRIMARY KEY,
-  value TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS auth_sessions (
-  token TEXT PRIMARY KEY,
-  username TEXT NOT NULL,
-  created_at INTEGER NOT NULL,
-  expires_at INTEGER NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at
-  ON auth_sessions(expires_at);
-
-CREATE TABLE IF NOT EXISTS login_attempts (
-  ip TEXT PRIMARY KEY,
-  count INTEGER NOT NULL DEFAULT 0,
-  last_attempt INTEGER NOT NULL,
-  locked_until INTEGER NOT NULL DEFAULT 0,
-  lock_level INTEGER NOT NULL DEFAULT 0,
-  expires_at INTEGER NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_login_attempts_expires_at
-  ON login_attempts(expires_at);
-
-CREATE TABLE IF NOT EXISTS sources (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  content TEXT NOT NULL,
-  node_count INTEGER NOT NULL DEFAULT 0,
-  sort_order INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_sources_sort
-  ON sources(sort_order, updated_at DESC);
-`;
+const D1_SCHEMA_STATEMENTS = [
+  `CREATE TABLE IF NOT EXISTS navigation_categories (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS navigation_links (
+    id TEXT PRIMARY KEY,
+    category_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    url TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    visit_count INTEGER NOT NULL DEFAULT 0,
+    last_visited_at TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (category_id) REFERENCES navigation_categories(id) ON DELETE CASCADE
+  )`,
+  'CREATE INDEX IF NOT EXISTS idx_navigation_links_category_sort ON navigation_links(category_id, sort_order)',
+  `CREATE TABLE IF NOT EXISTS notes (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL DEFAULT '',
+    is_pinned INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`,
+  'CREATE INDEX IF NOT EXISTS idx_notes_sort ON notes(is_pinned DESC, updated_at DESC)',
+  `CREATE TABLE IF NOT EXISTS snippets (
+    id TEXT PRIMARY KEY,
+    type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL DEFAULT '',
+    is_pinned INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`,
+  'CREATE INDEX IF NOT EXISTS idx_snippets_sort ON snippets(is_pinned DESC, updated_at DESC)',
+  `CREATE TABLE IF NOT EXISTS app_logs (
+    id TEXT PRIMARY KEY,
+    action TEXT NOT NULL,
+    detail TEXT,
+    created_at TEXT NOT NULL
+  )`,
+  'CREATE INDEX IF NOT EXISTS idx_app_logs_created_at ON app_logs(created_at DESC)',
+  `CREATE TABLE IF NOT EXISTS app_meta (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS auth_sessions (
+    token TEXT PRIMARY KEY,
+    username TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL
+  )`,
+  'CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at ON auth_sessions(expires_at)',
+  `CREATE TABLE IF NOT EXISTS login_attempts (
+    ip TEXT PRIMARY KEY,
+    count INTEGER NOT NULL DEFAULT 0,
+    last_attempt INTEGER NOT NULL,
+    locked_until INTEGER NOT NULL DEFAULT 0,
+    lock_level INTEGER NOT NULL DEFAULT 0,
+    expires_at INTEGER NOT NULL
+  )`,
+  'CREATE INDEX IF NOT EXISTS idx_login_attempts_expires_at ON login_attempts(expires_at)',
+  `CREATE TABLE IF NOT EXISTS sources (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    content TEXT NOT NULL,
+    node_count INTEGER NOT NULL DEFAULT 0,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`,
+  'CREATE INDEX IF NOT EXISTS idx_sources_sort ON sources(sort_order, updated_at DESC)'
+] as const;
 
 let d1SchemaReady: Promise<void> | null = null;
 
@@ -2835,10 +2813,13 @@ function getDatabase(env: Env): D1Database {
 async function ensureDatabaseSchema(env: Env): Promise<void> {
   const db = getDatabase(env);
   if (!d1SchemaReady) {
-    d1SchemaReady = db.exec(D1_SCHEMA_SQL).then(() => undefined).catch((error) => {
-      d1SchemaReady = null;
-      throw error;
-    });
+    d1SchemaReady = db
+      .batch(D1_SCHEMA_STATEMENTS.map((statement) => db.prepare(statement)))
+      .then(() => undefined)
+      .catch((error) => {
+        d1SchemaReady = null;
+        throw error;
+      });
   }
   await d1SchemaReady;
 }
