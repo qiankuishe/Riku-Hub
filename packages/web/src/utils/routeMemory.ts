@@ -1,6 +1,7 @@
 export const DEFAULT_APP_ROUTE = '/app/nav';
 
 const LAST_APP_ROUTE_KEY = 'qiankui:last-app-route';
+const ROUTE_SCROLL_KEY_PREFIX = 'qiankui:scroll:';
 
 export function isAppRoutePath(route: string | null | undefined): route is string {
   return typeof route === 'string' && route.startsWith('/app/');
@@ -25,6 +26,25 @@ export function rememberAppRoute(route: string) {
 
 export function resolveAppRoute(route: string | null | undefined): string {
   return isAppRoutePath(route) ? route : readLastAppRoute();
+}
+
+export function readAppRouteScroll(route: string): number {
+  if (typeof window === 'undefined' || !isAppRoutePath(route)) {
+    return 0;
+  }
+
+  const raw = window.sessionStorage.getItem(`${ROUTE_SCROLL_KEY_PREFIX}${route}`);
+  const value = Number.parseInt(raw ?? '0', 10);
+  return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+export function rememberAppRouteScroll(route: string, top: number) {
+  if (typeof window === 'undefined' || !isAppRoutePath(route)) {
+    return;
+  }
+
+  const normalized = Math.max(0, Math.round(top));
+  window.sessionStorage.setItem(`${ROUTE_SCROLL_KEY_PREFIX}${route}`, String(normalized));
 }
 
 export function buildLoginRedirectUrl(route?: string): string {
