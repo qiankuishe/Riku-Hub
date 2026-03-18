@@ -182,6 +182,7 @@
   color: var(--rk-text-soft);
   opacity: 0.6;
   transition: opacity 0.13s ease, transform 0.13s ease;
+  pointer-events: none;
 }
 
 .sidebar-nav-item:hover .sidebar-nav-chevron {
