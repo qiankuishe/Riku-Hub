@@ -9,10 +9,14 @@ const props = withDefaults(
     editMode: boolean;
     dragging?: boolean;
     dropTarget?: boolean;
+    dropBefore?: boolean;
+    dropAfter?: boolean;
   }>(),
   {
     dragging: false,
-    dropTarget: false
+    dropTarget: false,
+    dropBefore: false,
+    dropAfter: false
   }
 );
 
@@ -38,7 +42,12 @@ function handleOpen() {
   <LinkTooltip :visit-count="link.visitCount" :last-visited-at="link.lastVisitedAt" :description="link.description" :disabled="editMode">
     <article
       class="v3-link-card"
-      :class="{ 'is-dragging': dragging, 'is-drop-target': dropTarget }"
+      :class="{
+        'is-dragging': dragging,
+        'is-drop-target': dropTarget,
+        'drop-before': dropBefore,
+        'drop-after': dropAfter
+      }"
       :draggable="editMode"
       @click="handleOpen"
       @dragstart="emit('dragstart', $event, link)"

@@ -25,9 +25,6 @@ const viewMode = ref<ViewMode>('write');
 const renderedPreview = ref('');
 const deleteTarget = ref<NoteRecord | null>(null);
 const highlightedId = ref<string | null>(null);
-const notesTopId = 'v3-notes-top';
-const notesPinnedId = 'v3-notes-pinned';
-const notesRecentId = 'v3-notes-recent';
 
 let saveTimer = 0;
 let previewRunId = 0;
@@ -79,23 +76,8 @@ watch(
   { immediate: true }
 );
 
-watch(
-  () => [filtered.value.length, pinnedNotes.value.length, recentNotes.value.length],
-  () => {
-    uiStore.setSecondaryNav({
-      title: '笔记',
-      activeKey: 'all',
-      items: [
-        { key: 'all', label: '全部', badge: String(filtered.value.length), targetId: notesTopId },
-        { key: 'pinned', label: '置顶', badge: String(pinnedNotes.value.length), targetId: notesPinnedId },
-        { key: 'recent', label: '最近', badge: String(recentNotes.value.length), targetId: notesRecentId }
-      ]
-    });
-  },
-  { immediate: true }
-);
-
 onMounted(async () => {
+  uiStore.clearSecondaryNav();
   await loadAll();
   if (initialFocusId && notes.value.some((note) => note.id === initialFocusId)) {
     selectedNoteId.value = initialFocusId;
@@ -107,7 +89,6 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
-  uiStore.clearSecondaryNav();
   if (saveTimer) {
     window.clearTimeout(saveTimer);
   }
@@ -224,7 +205,7 @@ function noteExcerpt(content: string) {
 
 <template>
   <div class="v3-page">
-    <section class="v3-card" :id="notesTopId">
+    <section class="v3-card">
       <div class="v3-card-head">
         <div>
           <h2 class="v3-card-title">笔记</h2>
@@ -246,7 +227,7 @@ function noteExcerpt(content: string) {
         <div v-if="loading" class="v3-muted">加载中...</div>
         <div v-else-if="errorMessage" class="v3-danger">{{ errorMessage }}</div>
         <template v-else>
-          <div class="v3-list" :id="notesPinnedId">
+          <div class="v3-list">
             <strong>置顶 ({{ pinnedNotes.length }})</strong>
             <button
               v-for="note in pinnedNotes"
@@ -260,7 +241,7 @@ function noteExcerpt(content: string) {
               <p class="v3-muted">{{ noteExcerpt(note.content) }}</p>
             </button>
           </div>
-          <div class="v3-list" :id="notesRecentId" style="margin-top: 10px;">
+          <div class="v3-list" style="margin-top: 10px;">
             <strong>最近 ({{ recentNotes.length }})</strong>
             <button
               v-for="note in recentNotes"

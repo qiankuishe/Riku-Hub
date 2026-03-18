@@ -57,8 +57,8 @@
   line-height: 28px;
 }
 
-.menu-button {
-  display: none;
+.topbar .menu-button {
+  display: none !important;
 }
 
 .sidebar-brand {
@@ -95,6 +95,7 @@
 
 .sidebar-nav {
   overflow-y: auto;
+  min-height: 0;
   padding-right: 4px;
   display: grid;
   gap: 8px;
@@ -268,7 +269,7 @@
     align-items: flex-start;
   }
 
-  .menu-button {
-    display: inline-flex;
+  .topbar .menu-button {
+    display: inline-flex !important;
   }
 }

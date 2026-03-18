@@ -2,7 +2,6 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import type { NavigationCategory, NavigationLink, NoteRecord, SnippetRecord } from '../../core/api';
 import { navigationApi, notesApi, snippetsApi } from '../../core/api';
-import { formatDateTimeNoYear } from '../../core/format';
 import { useUiStore } from '../../../src/stores/ui';
 import UiButton from '../../../src/components/ui/UiButton.vue';
 import UiDialog from '../../../src/components/ui/UiDialog.vue';
@@ -10,7 +9,6 @@ import UiField from '../../../src/components/ui/UiField.vue';
 import CategoryDropZone from '../../modules/navigation/CategoryDropZone.vue';
 import ConfirmModal from '../../modules/navigation/ConfirmModal.vue';
 import LinkCard from '../../modules/navigation/LinkCard.vue';
-import SortableCategoryItem from '../../modules/navigation/SortableCategoryItem.vue';
 
 type SearchEngine = 'google' | 'bing' | 'baidu' | 'github' | 'local';
 type LocalSearchType = 'link' | 'note' | 'snippet';
@@ -55,11 +53,11 @@ const linkForm = ref({
 const deleteCategoryTarget = ref<NavigationCategory | null>(null);
 const deleteLinkTarget = ref<NavigationLink | null>(null);
 
-const draggingCategoryId = ref('');
 const draggingLinkId = ref('');
 const dragSourceCategoryId = ref('');
 const dropCategoryId = ref('');
 const dropLinkId = ref('');
+const dropPlacement = ref<'before' | 'after' | ''>('');
 
 const overviewSectionId = 'v3-nav-overview';
 
@@ -101,6 +99,7 @@ watch(
         }))
       ]
     });
+    uiStore.expandSidebarSection('/nav');
   },
   { deep: true, immediate: true }
 );
@@ -127,6 +126,7 @@ watch(searchEngine, (value) => {
 });
 
 onMounted(() => {
+  uiStore.expandSidebarSection('/nav');
   void loadAll();
 });
 
@@ -381,43 +381,12 @@ function getLink(categoryId: string, linkId: string) {
   return categories.value.find((entry) => entry.id === categoryId)?.links.find((entry) => entry.id === linkId) ?? null;
 }
 
-function onCategoryDragStart(event: DragEvent, categoryId: string) {
-  draggingCategoryId.value = categoryId;
-  event.dataTransfer?.setData('text/plain', categoryId);
-  event.dataTransfer!.effectAllowed = 'move';
-}
-
-async function onCategoryDrop(event: DragEvent, targetCategoryId: string) {
-  event.preventDefault();
-  const sourceCategoryId = draggingCategoryId.value;
-  draggingCategoryId.value = '';
-  if (!sourceCategoryId || sourceCategoryId === targetCategoryId) {
-    return;
-  }
-  const list = [...categories.value];
-  const from = list.findIndex((category) => category.id === sourceCategoryId);
-  const to = list.findIndex((category) => category.id === targetCategoryId);
-  if (from < 0 || to < 0) {
-    return;
-  }
-  const [moved] = list.splice(from, 1);
-  list.splice(to, 0, moved);
-  categories.value = list;
-  try {
-    await navigationApi.reorderCategories(list.map((category) => category.id));
-    uiStore.showToast('分类排序已更新');
-    await loadAll();
-  } catch (error) {
-    uiStore.showToast(error instanceof Error ? error.message : '分类排序失败');
-    await loadAll();
-  }
-}
-
 function onLinkDragStart(event: DragEvent, link: NavigationLink) {
   draggingLinkId.value = link.id;
   dragSourceCategoryId.value = link.categoryId;
   dropCategoryId.value = link.categoryId;
   dropLinkId.value = '';
+  dropPlacement.value = '';
   event.dataTransfer?.setData('text/plain', link.id);
   event.dataTransfer!.effectAllowed = 'move';
 }
@@ -427,27 +396,40 @@ function onLinkDragEnd() {
   dragSourceCategoryId.value = '';
   dropCategoryId.value = '';
   dropLinkId.value = '';
+  dropPlacement.value = '';
 }
 
-function onLinkDragOver(_event: DragEvent, link: NavigationLink) {
+function onLinkDragOver(event: DragEvent, link: NavigationLink) {
+  const element = event.currentTarget as HTMLElement | null;
+  const rect = element?.getBoundingClientRect();
+  const after = rect
+    ? event.clientY - rect.top > rect.height / 2 || event.clientX - rect.left > rect.width / 2
+    : false;
   dropCategoryId.value = link.categoryId;
   dropLinkId.value = link.id;
+  dropPlacement.value = after ? 'after' : 'before';
 }
 
 function onCategoryDragOver(_event: DragEvent, categoryId: string) {
   dropCategoryId.value = categoryId;
   dropLinkId.value = '';
+  dropPlacement.value = '';
 }
 
-async function onLinkDrop(_event: DragEvent, link: NavigationLink) {
-  await performLinkDrop(link.categoryId, link.id);
+async function onLinkDrop(event: DragEvent, link: NavigationLink) {
+  const element = event.currentTarget as HTMLElement | null;
+  const rect = element?.getBoundingClientRect();
+  const after = rect
+    ? event.clientY - rect.top > rect.height / 2 || event.clientX - rect.left > rect.width / 2
+    : dropPlacement.value === 'after';
+  await performLinkDrop(link.categoryId, link.id, after);
 }
 
 async function onCategoryDropZone(_event: DragEvent, categoryId: string) {
-  await performLinkDrop(categoryId, null);
+  await performLinkDrop(categoryId, null, false);
 }
 
-async function performLinkDrop(targetCategoryId: string, targetLinkId: string | null) {
+async function performLinkDrop(targetCategoryId: string, targetLinkId: string | null, insertAfter: boolean) {
   const sourceLinkId = draggingLinkId.value;
   const sourceCategoryId = dragSourceCategoryId.value;
   if (!sourceLinkId || !sourceCategoryId) {
@@ -466,14 +448,16 @@ async function performLinkDrop(targetCategoryId: string, targetLinkId: string | 
   try {
     if (sourceCategoryId === targetCategoryId) {
       const ids = sourceCategory.links.map((entry) => entry.id).filter((id) => id !== sourceLinkId);
-      const insertIndex = targetLinkId ? Math.max(0, ids.indexOf(targetLinkId)) : ids.length;
+      const targetIndex = targetLinkId ? ids.indexOf(targetLinkId) : -1;
+      const insertIndex = targetLinkId ? Math.max(0, targetIndex + (insertAfter ? 1 : 0)) : ids.length;
       ids.splice(insertIndex, 0, sourceLinkId);
       await navigationApi.reorderLinks(sourceCategoryId, ids);
       uiStore.showToast('链接排序已更新');
     } else {
       const sourceIds = sourceCategory.links.map((entry) => entry.id).filter((id) => id !== sourceLinkId);
       const targetIds = targetCategory.links.map((entry) => entry.id).filter((id) => id !== sourceLinkId);
-      const insertIndex = targetLinkId ? Math.max(0, targetIds.indexOf(targetLinkId)) : targetIds.length;
+      const targetIndex = targetLinkId ? targetIds.indexOf(targetLinkId) : -1;
+      const insertIndex = targetLinkId ? Math.max(0, targetIndex + (insertAfter ? 1 : 0)) : targetIds.length;
       targetIds.splice(insertIndex, 0, sourceLinkId);
 
       await navigationApi.updateLink(sourceLinkId, { categoryId: targetCategoryId });
@@ -557,21 +541,6 @@ async function performLinkDrop(targetCategoryId: string, targetLinkId: string | 
       </div>
     </section>
 
-    <section class="v3-card">
-      <div class="v3-chip-list">
-        <SortableCategoryItem
-          v-for="category in categories"
-          :key="category.id"
-          :category="category"
-          :selected="selectedCategoryId === category.id"
-          :edit-mode="editMode"
-          @click="focusCategory"
-          @dragstart="onCategoryDragStart"
-          @drop="onCategoryDrop"
-        />
-      </div>
-    </section>
-
     <section v-if="loading" class="v3-card v3-muted">加载中...</section>
     <section v-else-if="errorMessage" class="v3-card v3-danger">{{ errorMessage }}</section>
     <section v-else-if="!categories.length" class="v3-card v3-muted">
@@ -608,6 +577,8 @@ async function performLinkDrop(targetCategoryId: string, targetLinkId: string | 
               :edit-mode="editMode"
               :dragging="draggingLinkId === link.id"
               :drop-target="dropLinkId === link.id"
+              :drop-before="dropLinkId === link.id && dropPlacement === 'before'"
+              :drop-after="dropLinkId === link.id && dropPlacement === 'after'"
               @open="handleOpenLink"
               @edit="openLinkDialog"
               @remove="deleteLinkTarget = $event"

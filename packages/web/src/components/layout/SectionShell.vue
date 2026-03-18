@@ -127,7 +127,7 @@ function handleSecondarySelect(item: SecondaryNavItem) {
 }
 
 watch(
-  () => uiStore.secondaryNavItems.length,
+  () => [props.currentPath, uiStore.secondaryNavItems.length],
   () => {
     syncExpandedSection();
   },

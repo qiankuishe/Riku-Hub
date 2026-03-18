@@ -30,6 +30,7 @@ const draftTitle = ref('');
 const draftContent = ref('');
 const draftError = ref('');
 const clipboardBusy = ref<'idle' | 'text' | 'image'>('idle');
+const imageUploadInput = ref<HTMLInputElement | null>(null);
 
 const editDialogOpen = ref(false);
 const editingSnippet = ref<SnippetRecord | null>(null);
@@ -37,6 +38,7 @@ const editType = ref<SnippetType>('text');
 const editTitle = ref('');
 const editContent = ref('');
 const deleteTarget = ref<SnippetRecord | null>(null);
+const IMAGE_LIMIT_BYTES = 340 * 1024;
 
 const typeOptions: Array<{ key: SnippetType; label: string }> = [
   { key: 'text', label: '文本' },
@@ -137,7 +139,13 @@ function buildSuggestedTitle(type: SnippetType, content: string) {
 
 function validateSnippet(type: SnippetType, content: string) {
   if (type === 'image') {
-    return content ? '' : '请先读取或上传图片';
+    if (!content) {
+      return '请先读取或上传图片';
+    }
+    if (new TextEncoder().encode(content).byteLength > IMAGE_LIMIT_BYTES) {
+      return '图片片段过大，请压缩后重试';
+    }
+    return '';
   }
   if (!content.trim()) {
     return '内容不能为空';
@@ -148,9 +156,92 @@ function validateSnippet(type: SnippetType, content: string) {
   return '';
 }
 
+async function blobToDataUrl(blob: Blob) {
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('图片读取失败'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function compressImageDataUrl(dataUrl: string, maxBytes = IMAGE_LIMIT_BYTES) {
+  if (new TextEncoder().encode(dataUrl).byteLength <= maxBytes) {
+    return dataUrl;
+  }
+
+  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('图片解析失败'));
+    img.src = dataUrl;
+  });
+
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d');
+  if (!context) {
+    return dataUrl;
+  }
+
+  let scale = 1;
+  let quality = 0.92;
+  let best = dataUrl;
+
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const width = Math.max(1, Math.round(image.naturalWidth * scale));
+    const height = Math.max(1, Math.round(image.naturalHeight * scale));
+    canvas.width = width;
+    canvas.height = height;
+    context.clearRect(0, 0, width, height);
+    context.drawImage(image, 0, 0, width, height);
+    const next = canvas.toDataURL('image/jpeg', quality);
+    best = next;
+    if (new TextEncoder().encode(next).byteLength <= maxBytes) {
+      return next;
+    }
+    scale *= 0.84;
+    quality = Math.max(0.45, quality - 0.1);
+  }
+  return best;
+}
+
+function triggerImageUpload() {
+  imageUploadInput.value?.click();
+}
+
+async function handleImageUpload(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) {
+    return;
+  }
+  try {
+    const raw = await blobToDataUrl(file);
+    const compressed = await compressImageDataUrl(raw);
+    if (new TextEncoder().encode(compressed).byteLength > IMAGE_LIMIT_BYTES) {
+      draftError.value = '图片过大，请选择更小图片';
+      return;
+    }
+    draftType.value = 'image';
+    draftContent.value = compressed;
+    if (!draftTitle.value) {
+      draftTitle.value = '剪贴图片';
+    }
+    draftError.value = '';
+    uiStore.showToast('图片已载入');
+  } catch (error) {
+    draftError.value = error instanceof Error ? error.message : '图片处理失败';
+  } finally {
+    input.value = '';
+  }
+}
+
 async function createSnippet() {
   const normalizedType = draftType.value === 'text' ? normalizeTypeFromContent(draftContent.value) : draftType.value;
-  const normalizedContent = normalizedType === 'link' ? draftContent.value.trim() : draftContent.value;
+  let normalizedContent = normalizedType === 'link' ? draftContent.value.trim() : draftContent.value;
+  if (normalizedType === 'image' && normalizedContent) {
+    normalizedContent = await compressImageDataUrl(normalizedContent);
+  }
   const message = validateSnippet(normalizedType, normalizedContent);
   if (message) {
     draftError.value = message;
@@ -209,14 +300,14 @@ async function readClipboardImage() {
         continue;
       }
       const blob = await item.getType(imageType);
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result || ''));
-        reader.onerror = () => reject(new Error('图片读取失败'));
-        reader.readAsDataURL(blob);
-      });
+      const dataUrl = await blobToDataUrl(blob);
+      const compressed = await compressImageDataUrl(dataUrl);
+      if (new TextEncoder().encode(compressed).byteLength > IMAGE_LIMIT_BYTES) {
+        draftError.value = '剪贴板图片过大，请先压缩';
+        return;
+      }
       draftType.value = 'image';
-      draftContent.value = dataUrl;
+      draftContent.value = compressed;
       if (!draftTitle.value) {
         draftTitle.value = '剪贴图片';
       }
@@ -257,7 +348,11 @@ async function saveEdit() {
   if (!editingSnippet.value) {
     return;
   }
-  const message = validateSnippet(editType.value, editContent.value);
+  let nextContent = editType.value === 'link' ? editContent.value.trim() : editContent.value;
+  if (editType.value === 'image' && nextContent) {
+    nextContent = await compressImageDataUrl(nextContent);
+  }
+  const message = validateSnippet(editType.value, nextContent);
   if (message) {
     errorMessage.value = message;
     return;
@@ -267,8 +362,8 @@ async function saveEdit() {
   try {
     const data = await snippetsApi.update(editingSnippet.value.id, {
       type: editType.value,
-      title: editTitle.value.trim() || buildSuggestedTitle(editType.value, editContent.value),
-      content: editType.value === 'link' ? editContent.value.trim() : editContent.value
+      title: editTitle.value.trim() || buildSuggestedTitle(editType.value, nextContent),
+      content: nextContent
     });
     snippets.value = snippets.value.map((entry) => (entry.id === data.snippet.id ? data.snippet : entry));
     snippets.value.sort((a, b) => Number(b.isPinned) - Number(a.isPinned) || b.updatedAt.localeCompare(a.updatedAt));
@@ -279,6 +374,15 @@ async function saveEdit() {
   } finally {
     saving.value = false;
   }
+}
+
+function buildCodePreview(content: string) {
+  const lines = content.split(/\r?\n/);
+  const preview = lines.slice(0, 6).join('\n');
+  if (lines.length > 6 || preview.length < content.length) {
+    return `${preview}\n...`;
+  }
+  return preview;
 }
 
 async function confirmDelete() {
@@ -298,7 +402,10 @@ async function confirmDelete() {
 async function copySnippet(snippet: SnippetRecord) {
   try {
     if (snippet.type === 'image') {
-      uiStore.showToast('图片请使用编辑后复制');
+      const response = await fetch(snippet.content);
+      const blob = await response.blob();
+      await navigator.clipboard.write([new ClipboardItem({ [blob.type || 'image/png']: blob })]);
+      uiStore.showToast('图片已复制');
       return;
     }
     await navigator.clipboard.writeText(snippet.content);
@@ -357,8 +464,10 @@ async function copySnippet(snippet: SnippetRecord) {
         <UiButton variant="secondary" :disabled="clipboardBusy !== 'idle'" @click="readClipboardImage">
           {{ clipboardBusy === 'image' ? '读取中...' : '读取图片' }}
         </UiButton>
+        <UiButton variant="secondary" @click="triggerImageUpload">上传图片</UiButton>
         <UiButton variant="primary" :loading="saving" :disabled="saving" @click="createSnippet">保存片段</UiButton>
       </div>
+      <input ref="imageUploadInput" type="file" accept="image/*" style="display: none;" @change="handleImageUpload" />
       <p class="v3-muted" style="margin-top: 8px;">
         当前内容大小：
         {{ draftType === 'image' ? formatBytes(new TextEncoder().encode(draftContent).byteLength) : `${draftContent.trim().length} 字` }}
@@ -399,10 +508,12 @@ async function copySnippet(snippet: SnippetRecord) {
           <div v-if="snippet.type === 'image'">
             <img :src="snippet.content" alt="snippet" style="max-height: 180px; max-width: 100%; border-radius: 10px;" />
           </div>
+          <pre v-else-if="snippet.type === 'code'" class="v3-code-preview">{{ buildCodePreview(snippet.content) }}</pre>
           <pre
-            v-else
+            v-else-if="snippet.type !== 'code'"
             style="margin: 0; white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;"
           >{{ snippet.content }}</pre>
+          <p v-if="snippet.type === 'code'" class="v3-muted">代码内容已折叠，可直接复制。</p>
         </article>
       </div>
     </section>
