@@ -340,11 +340,12 @@ p {
   position: sticky;
   top: 0;
   height: 100vh;
+  min-height: 100vh;
   padding: 22px 18px;
   border-radius: 0 28px 28px 0;
   border-left: none;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: 18px;
   overflow: hidden;
 }
@@ -359,19 +360,28 @@ p {
 }
 
 .sidebar-nav {
+  flex: 1 1 auto;
   min-height: 0;
+  max-height: 100%;
   gap: 10px;
   overflow-y: auto;
   overflow-x: hidden;
   align-content: start;
   padding-right: 4px;
+  padding-bottom: 18px;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  scroll-behavior: smooth;
+  scroll-padding-top: 10px;
+  scroll-padding-bottom: 30px;
 }
 
 .sidebar-group {
   display: grid;
   gap: 8px;
+  flex: 0 0 auto;
 }
 
 .sidebar-link {
