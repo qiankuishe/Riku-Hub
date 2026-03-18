@@ -314,6 +314,23 @@ function getSnippetDisplayContent(snippet: SnippetRecord) {
   return getSnippetExcerpt(snippet);
 }
 
+function getContentExcerpt(type: SnippetType, content: string) {
+  if (type === 'image') {
+    return '';
+  }
+  if (type === 'link') {
+    return content.trim();
+  }
+
+  const excerpt = content
+    .split(/\r?\n/)
+    .slice(0, 8)
+    .join('\n')
+    .slice(0, 320)
+    .trimEnd();
+  return excerpt.length < content.trimEnd().length ? `${excerpt}...` : excerpt;
+}
+
 function getSnippetMeta(snippet: SnippetRecord) {
   if (snippet.type === 'image') {
     return formatBytes(getByteLength(snippet.content));
@@ -837,56 +854,116 @@ async function handleEditorImageUpload(event: Event) {
     </div>
 
     <div v-if="dialogVisible" class="modal-backdrop" @click.self="dialogVisible = false">
-      <div class="modal-card">
+      <div class="modal-card editor-card clipboard-editor-card">
         <div class="section-head">
           <div>
+            <p class="eyebrow">Clipboard Editor</p>
             <h2>编辑剪贴内容</h2>
+            <p class="section-subtitle">把这条内容整理成更容易复用的标题、类型和格式。</p>
           </div>
           <button class="ghost small" :disabled="clipboardBusy !== 'idle'" @click="fillEditorFromClipboard">
             {{ clipboardBusy === 'editor' ? '读取中...' : '读入剪贴板' }}
           </button>
         </div>
 
-        <div class="editor-form">
-          <label class="field">
-            <span>内容类型</span>
-            <select v-model="formType" class="field-select">
-              <option value="text">文本</option>
-              <option value="code">代码</option>
-              <option value="link">链接</option>
-              <option value="image">图片</option>
-            </select>
-          </label>
+        <div class="clipboard-editor-layout">
+          <div class="clipboard-editor-aside">
+            <div class="clipboard-editor-summary" :data-snippet-type="formType">
+              <div class="clipboard-card-tags">
+                <span class="clipboard-type-badge" :class="getSnippetTypeClass(formType)">{{ getSnippetTypeLabel(formType) }}</span>
+                <span class="inline-status">{{ editorMetaText }}</span>
+              </div>
+              <strong>{{ formTitle.trim() || '未命名剪贴内容' }}</strong>
+              <p>
+                {{
+                  formType === 'image'
+                    ? '图片内容会直接保存为可预览格式。'
+                    : formType === 'link'
+                      ? '链接会在列表里以可点击卡片展示。'
+                      : formType === 'code'
+                        ? '代码会保留换行和缩进。'
+                        : '文本适合保存便签、话术和临时内容。'
+                }}
+              </p>
+            </div>
 
-          <label class="field">
-            <span>标题</span>
-            <input v-model="formTitle" placeholder="默认会按内容自动命名" />
-          </label>
+            <div class="clipboard-editor-preview-panel">
+              <div class="clipboard-section-head">
+                <div>
+                  <h3>内容预览</h3>
+                </div>
+              </div>
 
-          <label v-if="formType === 'image'" class="field">
-            <span>替换图片</span>
-            <input type="file" accept="image/*" @change="handleEditorImageUpload" />
-          </label>
+              <div v-if="formType === 'image' && formContent" class="clipboard-preview-card">
+                <img :src="formContent" alt="" class="snippet-image" />
+              </div>
+              <a
+                v-else-if="formType === 'link' && formContent.trim()"
+                :href="formContent.trim()"
+                target="_blank"
+                rel="noreferrer"
+                class="snippet-link clipboard-link"
+              >
+                {{ formContent.trim() }}
+              </a>
+              <pre
+                v-else
+                class="clipboard-content-block clipboard-editor-preview-content"
+                :class="{ 'snippet-code': formType === 'code', 'clipboard-text-block': formType !== 'code' }"
+              >{{ getContentExcerpt(formType, formContent) || '内容预览会显示在这里' }}</pre>
+            </div>
 
-          <div v-if="formType === 'image' && formContent" class="clipboard-preview-card">
-            <img :src="formContent" alt="" class="snippet-image" />
+            <div class="validation-box clipboard-editor-tips">
+              <strong>编辑建议</strong>
+              <p>标题尽量写成你之后一眼能认出的名字。</p>
+              <p>如果是链接或图片，优先用对应类型，列表展示会更清晰。</p>
+              <p>需要快速替换内容时，可以直接点右上角“读入剪贴板”。</p>
+            </div>
           </div>
 
-          <label class="field">
-            <span>内容</span>
-            <textarea
-              v-model="formContent"
-              rows="10"
-              :placeholder="formType === 'link' ? 'https://example.com' : formType === 'image' ? '可直接上传图片或读取剪贴板图片' : '输入内容'"
-            ></textarea>
-          </label>
-        </div>
+          <div class="editor-form">
+            <div class="field">
+              <span>内容类型</span>
+              <div class="clipboard-type-grid clipboard-editor-type-grid">
+                <button
+                  v-for="option in typeOptions"
+                  :key="option.key"
+                  type="button"
+                  class="clipboard-type-button"
+                  :class="[getSnippetTypeClass(option.key), { 'clipboard-type-button-active': formType === option.key }]"
+                  @click="formType = option.key"
+                >
+                  {{ option.label }}
+                </button>
+              </div>
+            </div>
 
-        <div class="clipboard-compose-footer">
-          <span class="inline-status">{{ editorMetaText }}</span>
-        </div>
+            <label class="field">
+              <span>标题</span>
+              <input v-model="formTitle" placeholder="默认会按内容自动命名" />
+            </label>
 
-        <p v-if="errorMessage" class="error-banner">{{ errorMessage }}</p>
+            <label v-if="formType === 'image'" class="field">
+              <span>替换图片</span>
+              <input type="file" accept="image/*" @change="handleEditorImageUpload" />
+            </label>
+
+            <label class="field">
+              <span>内容</span>
+              <textarea
+                v-model="formContent"
+                rows="12"
+                :placeholder="formType === 'link' ? 'https://example.com' : formType === 'image' ? '可直接上传图片或读取剪贴板图片' : '输入内容'"
+              ></textarea>
+            </label>
+
+            <div class="clipboard-compose-footer clipboard-editor-footer">
+              <span class="inline-status">{{ editorMetaText }}</span>
+            </div>
+
+            <p v-if="errorMessage" class="error-banner">{{ errorMessage }}</p>
+          </div>
+        </div>
 
         <div class="dialog-actions">
           <button class="ghost" @click="dialogVisible = false">取消</button>
