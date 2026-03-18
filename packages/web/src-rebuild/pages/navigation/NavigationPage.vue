@@ -70,6 +70,7 @@ const searchEngines: Record<SearchEngine, { name: string; url: string }> = {
 };
 
 const totalLinks = computed(() => categories.value.reduce((sum, category) => sum + category.links.length, 0));
+const hasCategories = computed(() => categories.value.length > 0);
 const recentLinks = computed(() =>
   categories.value
     .flatMap((category) => category.links.map((link) => ({ ...link, categoryName: category.name })))
@@ -482,12 +483,15 @@ async function performLinkDrop(targetCategoryId: string, targetLinkId: string | 
           <h2 class="v3-card-title">网站导航</h2>
           <p class="v3-muted">完整迁移导航体验，保留当前侧边栏机制。</p>
         </div>
-        <div class="v3-inline-actions">
-          <UiButton :variant="editMode ? 'primary' : 'secondary'" @click="editMode = !editMode">
-            {{ editMode ? '完成编辑' : '编辑模式' }}
-          </UiButton>
-          <UiButton v-if="editMode" variant="primary" @click="openCategoryDialog()">新增分类</UiButton>
-          <UiButton variant="tertiary" :disabled="loading" @click="loadAll">刷新</UiButton>
+        <div class="v3-nav-head-actions">
+          <UiButton v-if="editMode || !hasCategories" variant="secondary" @click="openCategoryDialog()">新增分类</UiButton>
+          <div class="v3-nav-head-actions-right">
+            <UiButton v-if="editMode && hasCategories" variant="primary" @click="openLinkDialog()">新增站点</UiButton>
+            <UiButton variant="tertiary" @click="editMode = !editMode">
+              {{ editMode ? '完成编辑' : '进入编辑' }}
+            </UiButton>
+            <UiButton variant="tertiary" :disabled="loading" @click="loadAll">刷新</UiButton>
+          </div>
         </div>
       </div>
 
