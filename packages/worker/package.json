@@ -1,5 +1,5 @@
 {
-  "name": "@qiankui-sub-cf/worker",
+  "name": "@riku-hub/worker",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -9,7 +9,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@qiankui-sub-cf/shared": "workspace:*",
+    "@riku-hub/shared": "workspace:*",
     "hono": "^4.6.19"
   }
 }

@@ -78,8 +78,8 @@ watch(
       <aside class="mobile-drawer">
         <div class="mobile-drawer-head">
           <button class="sidebar-brand sidebar-brand-button" type="button" title="冷启动当前页面" @click="handleBrandClick">
-            <img src="/logo.png" alt="QianKui" class="sidebar-logo" />
-            <strong>QianKui</strong>
+            <img src="/logo.png" alt="Riku-Hub" class="sidebar-logo" />
+            <strong>Riku-Hub</strong>
           </button>
           <button class="ghost small" @click="emit('close')">收起</button>
         </div>

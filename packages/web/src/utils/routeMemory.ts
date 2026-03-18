@@ -1,8 +1,8 @@
 import { DEFAULT_APP_ROUTE, isAppRoutePath } from './pageConfig';
 export { DEFAULT_APP_ROUTE, isAppRoutePath } from './pageConfig';
 
-const LAST_APP_ROUTE_KEY = 'qiankui:last-app-route';
-const ROUTE_SCROLL_KEY_PREFIX = 'qiankui:scroll:';
+const LAST_APP_ROUTE_KEY = 'riku-hub:last-app-route';
+const ROUTE_SCROLL_KEY_PREFIX = 'riku-hub:scroll:';
 
 export function readLastAppRoute(): string {
   if (typeof window === 'undefined') {

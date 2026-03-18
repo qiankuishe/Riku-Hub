@@ -1,13 +1,13 @@
 {
-  "name": "qiankui-sub-cf",
+  "name": "riku-hub",
   "version": "0.1.0",
   "private": true,
   "packageManager": "pnpm@10.6.0",
   "scripts": {
     "dev:worker": "wrangler dev --config wrangler.toml",
-    "dev:web": "corepack pnpm --filter @qiankui-sub-cf/web dev",
+    "dev:web": "corepack pnpm --filter @riku-hub/web dev",
     "build": "corepack pnpm -r run build",
-    "build:web": "corepack pnpm --filter @qiankui-sub-cf/web build",
+    "build:web": "corepack pnpm --filter @riku-hub/web build",
     "deploy": "corepack pnpm build:web && npx wrangler deploy",
     "check": "corepack pnpm -r run check",
     "test": "corepack pnpm -r run test"

@@ -26,7 +26,7 @@ export function getPathname(route: string | null | undefined): string {
   }
 
   try {
-    return new URL(route, 'https://qiankui.local').pathname;
+    return new URL(route, 'https://riku-hub.local').pathname;
   } catch {
     return route.split(/[?#]/, 1)[0] ?? '';
   }

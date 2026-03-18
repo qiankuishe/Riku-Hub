@@ -12,8 +12,8 @@
     "types": ["@cloudflare/workers-types"],
     "baseUrl": ".",
     "paths": {
-      "@qiankui-sub-cf/shared": ["packages/shared/src/index.ts"],
-      "@qiankui-sub-cf/shared/*": ["packages/shared/src/*"]
+      "@riku-hub/shared": ["packages/shared/src/index.ts"],
+      "@riku-hub/shared/*": ["packages/shared/src/*"]
     }
   }
 }

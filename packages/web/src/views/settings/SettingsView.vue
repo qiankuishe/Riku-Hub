@@ -102,7 +102,7 @@ async function exportBackup() {
     });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `qiankui-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    link.download = `riku-hub-backup-${new Date().toISOString().slice(0, 10)}.json`;
     document.body.append(link);
     link.click();
     link.remove();
@@ -233,7 +233,7 @@ async function logout() {
             <div class="setting-card">
               <span>冷启动入口</span>
               <strong>侧边栏品牌区</strong>
-              <p>点击 QianKui 标识会清本地缓存并保留登录状态，按首次进入方式重载当前页。</p>
+              <p>点击 Riku-Hub 标识会清本地缓存并保留登录状态，按首次进入方式重载当前页。</p>
             </div>
           </div>
         </article>

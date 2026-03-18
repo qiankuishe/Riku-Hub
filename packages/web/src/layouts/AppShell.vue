@@ -11,7 +11,7 @@ const route = useRoute();
 const router = useRouter();
 const uiStore = useUiStore();
 
-const title = computed(() => String(route.meta.title ?? 'QianKui'));
+const title = computed(() => String(route.meta.title ?? 'Riku-Hub'));
 const subtitle = computed(() => String(route.meta.subtitle ?? ''));
 const RESTORE_SCROLL_WINDOW_MS = 5000;
 let scrollFrame = 0;

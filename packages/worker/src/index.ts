@@ -19,7 +19,7 @@ import {
   type OutputFormat,
   type SourceRecord,
   type ValidationSummary
-} from '@qiankui-sub-cf/shared';
+} from '@riku-hub/shared';
 
 export interface Env {
   APP_KV: KVNamespace;
@@ -817,9 +817,9 @@ app.get('/sub', async (c) => {
   await appendLog(c.env, 'subscription', `订阅请求: format=${format}, nodes=${cacheResult.meta.totalNodes}, stale=${String(fromStaleCache)}`);
   const contentType = format === 'singbox' ? 'application/json; charset=utf-8' : 'text/plain; charset=utf-8';
   c.header('Content-Type', contentType);
-  c.header('Content-Disposition', `attachment; filename="qiankui-${format}.txt"`);
-  c.header('X-Qiankui-Cache-Status', cacheResult.meta.cacheStatus);
-  c.header('X-Qiankui-Warning-Count', String(warnings.length));
+  c.header('Content-Disposition', `attachment; filename="riku-hub-${format}.txt"`);
+  c.header('X-Riku-Hub-Cache-Status', cacheResult.meta.cacheStatus);
+  c.header('X-Riku-Hub-Warning-Count', String(warnings.length));
   return c.body(content);
 });
 
@@ -1164,7 +1164,7 @@ async function fetchSubscription(env: Env, rawUrl: string, depth = 0): Promise<{
   await assertSafeUrl(env, url);
 
   const response = await fetch(url.toString(), {
-    headers: { 'User-Agent': 'QianKui-Sub-CF/0.1' },
+    headers: { 'User-Agent': 'Riku-Hub/0.1' },
     redirect: 'manual'
   });
 
@@ -1214,7 +1214,7 @@ async function fetchFaviconSource(env: Env, rawUrl: string): Promise<{ dataUrl: 
   await assertSafeUrl(env, url);
 
   const response = await fetch(url.toString(), {
-    headers: { 'User-Agent': 'QianKui-Sub-CF/0.1' },
+    headers: { 'User-Agent': 'Riku-Hub/0.1' },
     redirect: 'follow'
   });
 

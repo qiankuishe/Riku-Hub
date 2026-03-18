@@ -1,4 +1,4 @@
-const DB_NAME = 'qiankui-favicon-cache';
+const DB_NAME = 'riku-hub-favicon-cache';
 const STORE_NAME = 'favicons';
 const DB_VERSION = 1;
 const MAX_CACHE_SIZE = 50 * 1024 * 1024;

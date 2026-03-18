@@ -33,10 +33,10 @@ async function handleLogin() {
   <div class="login-page">
     <div class="login-card">
       <div class="login-hero">
-        <img src="/logo.png" alt="QianKui" class="login-logo" />
+        <img src="/logo.png" alt="Riku-Hub" class="login-logo" />
         <div>
           <p class="eyebrow">Cloudflare Edition</p>
-          <h1>QianKui 聚合</h1>
+          <h1>Riku-Hub</h1>
           <p class="subtitle">订阅聚合、导航扩展与统一后台入口</p>
         </div>
       </div>

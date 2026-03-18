@@ -1,6 +1,6 @@
-# QianKui Sub CF
+# Riku-Hub
 
-Cloudflare Workers 版的 QianKui 订阅聚合服务，包含完整后台、订阅源管理、预聚合缓存和多格式输出。
+Cloudflare Workers 版的 Riku-Hub 聚合服务，包含完整后台、订阅源管理、预聚合缓存和多格式输出。
 
 ## 架构
 
