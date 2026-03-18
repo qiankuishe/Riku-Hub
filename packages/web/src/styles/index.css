@@ -506,6 +506,12 @@ p {
   justify-items: center;
 }
 
+.subscriptions-layout {
+  width: min(100%, 680px);
+  display: grid;
+  gap: 22px;
+}
+
 .page-shell-wide {
   gap: 24px;
 }
@@ -646,7 +652,7 @@ p {
 }
 
 .page-action-row {
-  width: min(100%, 680px);
+  width: 100%;
 }
 
 .compact-action-row {
@@ -1182,6 +1188,7 @@ p {
 
   .compact-panel,
   .page-action-row,
+  .subscriptions-layout,
   .snippet-filter {
     width: 100%;
   }

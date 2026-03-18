@@ -172,33 +172,35 @@ async function refreshAggregation() {
 
 <template>
   <div class="page-shell page-shell-compact">
-    <section class="page-action-row compact-action-row">
-      <button class="ghost" :disabled="subscriptionsStore.refreshing" @click="refreshAggregation">
-        {{ subscriptionsStore.refreshing ? '刷新中...' : '刷新聚合缓存' }}
-      </button>
-    </section>
+    <div class="subscriptions-layout">
+      <section class="page-action-row compact-action-row">
+        <button class="ghost" :disabled="subscriptionsStore.refreshing" @click="refreshAggregation">
+          {{ subscriptionsStore.refreshing ? '刷新中...' : '刷新聚合缓存' }}
+        </button>
+      </section>
 
-    <section>
-      <SubscriptionLinksPanel
-        :sub-info="subscriptionsStore.subInfo"
-        :sub-formats="subscriptionsStore.subFormats"
-        :last-save-time="subscriptionsStore.lastSaveTime"
-        :cache-status-text="cacheStatusText"
-        @copy="copyLink"
-        @qr="showQr"
-      />
-    </section>
+      <section>
+        <SubscriptionLinksPanel
+          :sub-info="subscriptionsStore.subInfo"
+          :sub-formats="subscriptionsStore.subFormats"
+          :last-save-time="subscriptionsStore.lastSaveTime"
+          :cache-status-text="cacheStatusText"
+          @copy="copyLink"
+          @qr="showQr"
+        />
+      </section>
 
-    <section>
-      <SourcesPanel
-        :sources="subscriptionsStore.sources"
-        :saving="subscriptionsStore.saving"
-        @create="openCreateDialog"
-        @edit="openEditDialog"
-        @delete="removeSource"
-        @move="moveSource"
-      />
-    </section>
+      <section>
+        <SourcesPanel
+          :sources="subscriptionsStore.sources"
+          :saving="subscriptionsStore.saving"
+          @create="openCreateDialog"
+          @edit="openEditDialog"
+          @delete="removeSource"
+          @move="moveSource"
+        />
+      </section>
+    </div>
 
     <SourceEditorDialog
       :open="dialogVisible"
