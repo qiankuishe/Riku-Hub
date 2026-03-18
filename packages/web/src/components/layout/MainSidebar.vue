@@ -40,6 +40,13 @@ function handleNavWheel(event: WheelEvent) {
   if (!canScroll) {
     return;
   }
+
+  const atTop = event.deltaY < 0 && nav.scrollTop <= 0;
+  const atBottom = event.deltaY > 0 && nav.scrollTop + nav.clientHeight >= nav.scrollHeight - 1;
+  if (atTop || atBottom) {
+    return;
+  }
+
   event.preventDefault();
   nav.scrollTop += event.deltaY;
 }
@@ -120,6 +127,7 @@ watch(
       >
         <!-- Primary nav item -->
         <button
+          type="button"
           class="sidebar-nav-item"
           :class="{ 'sidebar-nav-item-active': isCurrent(item.to) }"
           :title="item.label"
@@ -153,6 +161,7 @@ watch(
           <button
             v-for="subItem in secondaryItems"
             :key="subItem.key"
+            type="button"
             class="sidebar-submenu-link"
             :class="{ 'sidebar-submenu-link-active': secondaryActiveKey === subItem.key }"
             @click="emit('selectSecondary', subItem)"

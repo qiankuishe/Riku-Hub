@@ -43,6 +43,13 @@ function handleNavWheel(event: WheelEvent) {
   if (!canScroll) {
     return;
   }
+
+  const atTop = event.deltaY < 0 && nav.scrollTop <= 0;
+  const atBottom = event.deltaY > 0 && nav.scrollTop + nav.clientHeight >= nav.scrollHeight - 1;
+  if (atTop || atBottom) {
+    return;
+  }
+
   event.preventDefault();
   nav.scrollTop += event.deltaY;
 }
@@ -118,7 +125,7 @@ watch(
             <img src="/logo.png" alt="Riku-Hub" class="sidebar-logo" />
             <strong>Riku-Hub</strong>
           </button>
-          <button class="ghost small" @click="emit('close')">收起</button>
+          <button class="ghost small" type="button" @click="emit('close')">收起</button>
         </div>
 
         <nav :ref="setNavRef" class="sidebar-nav" @wheel="handleNavWheel">
@@ -128,7 +135,12 @@ watch(
             :ref="(element) => setGroupRef(item.to, element)"
             class="sidebar-group"
           >
-            <button class="sidebar-link sidebar-link-button" :class="{ 'sidebar-link-active': isCurrent(item.to) }" @click="handlePrimaryClick(item.to)">
+            <button
+              class="sidebar-link sidebar-link-button"
+              type="button"
+              :class="{ 'sidebar-link-active': isCurrent(item.to) }"
+              @click="handlePrimaryClick(item.to)"
+            >
               <div class="sidebar-link-copy">
                 <span>{{ item.label }}</span>
               </div>
@@ -146,6 +158,7 @@ watch(
                 <button
                   v-for="subItem in secondaryItems"
                   :key="subItem.key"
+                  type="button"
                   class="sidebar-submenu-link"
                   :class="{ 'sidebar-submenu-link-active': secondaryActiveKey === subItem.key }"
                   @click="emit('selectSecondary', subItem)"
