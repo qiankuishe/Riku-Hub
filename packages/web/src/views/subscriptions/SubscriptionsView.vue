@@ -25,8 +25,6 @@ const qrTitle = ref('');
 const qrCodeUrl = ref('');
 const deleteTarget = ref<Source | null>(null);
 let validateTimer: number | undefined;
-const linksSectionId = 'subscription-links';
-const sourcesSectionId = 'subscription-sources';
 
 const dialogTitle = computed(() => (editingSource.value ? '编辑订阅源' : '新增订阅源'));
 const cacheStatusText = computed(() => {
@@ -42,31 +40,9 @@ const cacheStatusText = computed(() => {
 });
 
 onMounted(() => {
-  uiStore.setSecondaryNav({
-    title: '订阅聚合',
-    activeKey: 'links',
-    items: [
-      { key: 'links', label: '订阅链接', targetId: linksSectionId },
-      { key: 'sources', label: '订阅源', badge: String(subscriptionsStore.sources.length), targetId: sourcesSectionId }
-    ]
-  });
+  uiStore.clearSecondaryNav();
   void subscriptionsStore.loadPageData();
 });
-
-watch(
-  () => subscriptionsStore.sources.length,
-  (count) => {
-    uiStore.setSecondaryNav({
-      title: '订阅聚合',
-      activeKey: uiStore.secondaryNavActiveKey || 'links',
-      items: [
-        { key: 'links', label: '订阅链接', targetId: linksSectionId },
-        { key: 'sources', label: '订阅源', badge: String(count), targetId: sourcesSectionId }
-      ]
-    });
-  },
-  { immediate: true }
-);
 
 onUnmounted(() => {
   uiStore.clearSecondaryNav();
@@ -196,7 +172,7 @@ async function refreshAggregation() {
 
 <template>
   <div class="page-shell page-shell-compact">
-    <section :id="linksSectionId">
+    <section>
       <SubscriptionLinksPanel
         :sub-info="subscriptionsStore.subInfo"
         :sub-formats="subscriptionsStore.subFormats"
@@ -213,7 +189,7 @@ async function refreshAggregation() {
       </button>
     </section>
 
-    <section :id="sourcesSectionId">
+    <section>
       <SourcesPanel
         :sources="subscriptionsStore.sources"
         :saving="subscriptionsStore.saving"

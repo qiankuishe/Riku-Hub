@@ -57,7 +57,6 @@ async function handlePrimaryClick(itemTo: string) {
             <button class="sidebar-link sidebar-link-button" :class="{ 'sidebar-link-active': isCurrent(item.to) }" @click="handlePrimaryClick(item.to)">
               <div class="sidebar-link-copy">
                 <span>{{ item.label }}</span>
-                <small>{{ item.caption }}</small>
               </div>
               <span v-if="isCurrent(item.to) && secondaryItems.length" class="sidebar-link-chevron">
                 {{ uiStore.expandedSidebarSection === item.to ? '▾' : '▸' }}
