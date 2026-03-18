@@ -172,13 +172,13 @@ async function refreshAggregation() {
 
 <template>
   <div class="page-shell page-shell-compact">
-    <div class="subscriptions-layout">
-      <section class="page-action-row compact-action-row">
-        <button class="ghost" :disabled="subscriptionsStore.refreshing" @click="refreshAggregation">
-          {{ subscriptionsStore.refreshing ? '刷新中...' : '刷新聚合缓存' }}
-        </button>
-      </section>
+    <section class="page-action-row page-action-row-wide compact-action-row">
+      <button class="ghost" :disabled="subscriptionsStore.refreshing" @click="refreshAggregation">
+        {{ subscriptionsStore.refreshing ? '刷新中...' : '刷新聚合缓存' }}
+      </button>
+    </section>
 
+    <div class="subscriptions-layout">
       <section>
         <SubscriptionLinksPanel
           :sub-info="subscriptionsStore.subInfo"

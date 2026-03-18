@@ -655,6 +655,10 @@ p {
   width: 100%;
 }
 
+.page-action-row-wide {
+  width: 100%;
+}
+
 .compact-action-row {
   display: flex;
   justify-content: flex-end;
