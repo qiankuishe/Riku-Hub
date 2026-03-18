@@ -369,7 +369,8 @@ p {
   overflow-y: auto;
   overflow-x: hidden;
   align-content: start;
-  padding-right: 4px;
+  margin-right: -10px;
+  padding-right: 14px;
   padding-bottom: 18px;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
