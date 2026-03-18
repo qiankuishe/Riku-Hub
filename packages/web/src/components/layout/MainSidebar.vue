@@ -70,10 +70,7 @@ watch(
   <aside class="main-sidebar">
     <div class="sidebar-brand">
       <img src="/logo.png" alt="QianKui" class="sidebar-logo" />
-      <div>
-        <p class="eyebrow">Control Center</p>
-        <strong>QianKui</strong>
-      </div>
+      <strong>QianKui</strong>
     </div>
 
     <nav class="sidebar-nav">

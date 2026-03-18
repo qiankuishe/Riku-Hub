@@ -79,10 +79,7 @@ watch(
         <div class="mobile-drawer-head">
           <div class="sidebar-brand">
             <img src="/logo.png" alt="QianKui" class="sidebar-logo" />
-            <div>
-              <p class="eyebrow">Control Center</p>
-              <strong>QianKui</strong>
-            </div>
+            <strong>QianKui</strong>
           </div>
           <button class="ghost small" @click="emit('close')">收起</button>
         </div>

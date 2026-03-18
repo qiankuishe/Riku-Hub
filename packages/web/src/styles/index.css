@@ -346,17 +346,19 @@ p {
   border-left: none;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 28px;
   overflow: hidden;
 }
 
 .sidebar-brand {
   gap: 14px;
+  margin-bottom: 8px;
 }
 
 .sidebar-brand strong {
   display: block;
   font-size: 18px;
+  line-height: 1.1;
 }
 
 .sidebar-nav {
@@ -518,6 +520,10 @@ p {
   width: min(100%, 680px);
 }
 
+.wide-panel {
+  width: min(100%, 820px);
+}
+
 .section-head {
   justify-content: space-between;
   gap: 16px;
@@ -643,7 +649,7 @@ p {
 }
 
 .page-action-row {
-  width: min(100%, 680px);
+  width: min(100%, 820px);
 }
 
 .compact-action-row {
@@ -1178,6 +1184,7 @@ p {
   }
 
   .compact-panel,
+  .wide-panel,
   .page-action-row,
   .snippet-filter {
     width: 100%;
