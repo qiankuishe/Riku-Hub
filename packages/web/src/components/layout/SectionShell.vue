@@ -180,11 +180,13 @@ onUnmounted(() => {
     />
 
     <div class="app-shell-main">
-      <AppTopbar :title="title" :subtitle="subtitle ?? ''" @menu="uiStore.openMobileNav" />
+      <div class="app-shell-main-inner">
+        <AppTopbar :title="title" :subtitle="subtitle ?? ''" @menu="uiStore.openMobileNav" />
 
-      <main class="page-content">
-        <slot />
-      </main>
+        <main class="page-content">
+          <slot />
+        </main>
+      </div>
     </div>
 
     <MobileNavDrawer
