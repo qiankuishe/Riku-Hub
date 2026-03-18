@@ -17,7 +17,7 @@ const emit = defineEmits<{
 }>();
 
 const groupRefs = ref<Record<string, HTMLElement | null>>({});
-const sidebarRef = ref<HTMLElement | null>(null);
+const navRef = ref<HTMLElement | null>(null);
 
 function isCurrent(itemTo: string) {
   return props.currentPath.startsWith(itemTo);
@@ -27,13 +27,13 @@ function setGroupRef(itemTo: string, element: unknown) {
   groupRefs.value[itemTo] = element instanceof HTMLElement ? element : null;
 }
 
-function setSidebarRef(element: unknown) {
-  sidebarRef.value = element instanceof HTMLElement ? element : null;
+function setNavRef(element: unknown) {
+  navRef.value = element instanceof HTMLElement ? element : null;
 }
 
 async function revealGroup(itemTo: string) {
   await nextTick();
-  const nav = sidebarRef.value;
+  const nav = navRef.value;
   const group = groupRefs.value[itemTo];
   if (!nav || !group) {
     return;
@@ -93,14 +93,14 @@ watch(
 </script>
 
 <template>
-  <aside :ref="setSidebarRef" class="main-sidebar">
+  <aside class="main-sidebar">
     <!-- Brand -->
     <button class="sidebar-brand sidebar-brand-button" type="button" title="冷启动当前页面" @click="handleBrandClick">
       <img src="/logo.png" alt="Riku-Hub" class="sidebar-logo" />
       <span class="sidebar-brand-name">Riku-Hub</span>
     </button>
 
-    <nav class="sidebar-nav">
+    <nav :ref="setNavRef" class="sidebar-nav">
       <div
         v-for="item in APP_NAV_ITEMS"
         :key="item.to"

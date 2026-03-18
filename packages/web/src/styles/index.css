@@ -355,13 +355,9 @@ p {
   display: flex;
   flex-direction: column;
   gap: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: hidden;
   flex-shrink: 0;
   z-index: 40;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-gutter: stable;
 }
 
 /* ── Sidebar brand ── */
@@ -369,15 +365,10 @@ p {
   display: flex;
   align-items: center;
   gap: 12px;
-  position: sticky;
-  top: 0;
-  z-index: 1;
   padding: 4px 6px 16px;
   border-bottom: 1px solid var(--line);
   margin-bottom: 4px;
   flex-shrink: 0;
-  background: var(--bg-panel);
-  backdrop-filter: blur(16px);
 }
 
 .sidebar-brand-button {
@@ -422,8 +413,12 @@ p {
 .main-sidebar .sidebar-nav {
   flex: 1 1 0;
   min-height: 0;
-  overflow: visible;
+  overflow-y: auto;
+  overflow-x: hidden;
   padding: 4px 0 18px;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .mobile-drawer .sidebar-nav {
