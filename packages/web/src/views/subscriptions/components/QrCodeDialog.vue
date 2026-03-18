@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import UiButton from '../../../components/ui/UiButton.vue';
+import UiDialog from '../../../components/ui/UiDialog.vue';
+
 defineProps<{
   open: boolean;
   title: string;
@@ -11,18 +14,10 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div v-if="open" class="modal-backdrop" @click.self="emit('close')">
-    <div class="modal-card qr-card">
-      <div class="section-head">
-        <div>
-          <h2>{{ title }}</h2>
-          <p class="section-subtitle">扫码后即可导入订阅。</p>
-        </div>
-      </div>
-      <img :src="qrCodeUrl" alt="QRCode" class="qr-image" />
-      <div class="dialog-actions">
-        <button class="ghost" @click="emit('close')">关闭</button>
-      </div>
-    </div>
-  </div>
+  <UiDialog :open="open" :title="title" description="扫码后即可导入订阅。" confirm-text="关闭" @close="emit('close')" @confirm="emit('close')">
+    <img :src="qrCodeUrl" alt="QRCode" class="qr-image" />
+    <template #footer>
+      <UiButton variant="tertiary" @click="emit('close')">关闭</UiButton>
+    </template>
+  </UiDialog>
 </template>

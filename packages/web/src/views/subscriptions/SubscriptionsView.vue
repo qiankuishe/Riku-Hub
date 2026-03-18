@@ -212,29 +212,25 @@ async function refreshAggregation() {
 <template>
   <div class="page-shell page-shell-compact">
     <div class="subscriptions-layout">
-      <section>
-        <SubscriptionLinksPanel
-          :sub-info="subscriptionsStore.subInfo"
-          :sub-formats="subscriptionsStore.subFormats"
-          :last-save-time="subscriptionsStore.lastSaveTime"
-          :cache-status-text="cacheStatusText"
-          :refreshing="subscriptionsStore.refreshing"
-          @copy="copyLink"
-          @qr="showQr"
-          @refresh="refreshAggregation"
-        />
-      </section>
+      <SubscriptionLinksPanel
+        :sub-info="subscriptionsStore.subInfo"
+        :sub-formats="subscriptionsStore.subFormats"
+        :last-save-time="subscriptionsStore.lastSaveTime"
+        :cache-status-text="cacheStatusText"
+        :refreshing="subscriptionsStore.refreshing"
+        @copy="copyLink"
+        @qr="showQr"
+        @refresh="refreshAggregation"
+      />
 
-      <section>
-        <SourcesPanel
-          :sources="subscriptionsStore.sources"
-          :saving="subscriptionsStore.saving"
-          @create="openCreateDialog"
-          @edit="openEditDialog"
-          @delete="removeSource"
-          @move="moveSource"
-        />
-      </section>
+      <SourcesPanel
+        :sources="subscriptionsStore.sources"
+        :saving="subscriptionsStore.saving"
+        @create="openCreateDialog"
+        @edit="openEditDialog"
+        @delete="removeSource"
+        @move="moveSource"
+      />
     </div>
 
     <SourceEditorDialog

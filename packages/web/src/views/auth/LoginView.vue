@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { authApi } from '../../api';
+import UiButton from '../../components/ui/UiButton.vue';
+import UiField from '../../components/ui/UiField.vue';
 import { resolveAppRoute } from '../../utils/routeMemory';
 
 const username = ref('');
@@ -31,24 +33,22 @@ async function handleLogin() {
 
 <template>
   <div class="login-page">
-    <div class="login-card">
+    <section class="login-card">
       <div class="login-hero">
         <img src="/logo.png" alt="Riku-Hub" class="login-logo" />
         <div>
-          <p class="eyebrow">Cloudflare Edition</p>
-          <h1>Riku-Hub</h1>
-          <p class="subtitle">订阅聚合、导航扩展与统一后台入口</p>
+          <p class="eyebrow">Riku-Hub</p>
+          <h1>欢迎回来</h1>
+          <p class="subtitle">登录后继续管理导航、订阅、笔记与片段。</p>
         </div>
       </div>
 
       <form class="login-form" @submit.prevent="handleLogin">
-        <label class="field">
-          <span>用户名</span>
-          <input v-model="username" autocomplete="username" placeholder="admin" />
-        </label>
+        <UiField label="用户名">
+          <input v-model="username" autocomplete="username" placeholder="请输入用户名" />
+        </UiField>
 
-        <label class="field">
-          <span>密码</span>
+        <UiField label="密码">
           <div class="password-field">
             <input
               v-model="password"
@@ -90,14 +90,11 @@ async function handleLogin() {
               </svg>
             </button>
           </div>
-        </label>
+        </UiField>
 
         <p v-if="errorMessage" class="error-banner">{{ errorMessage }}</p>
-
-        <button class="primary wide" type="submit" :disabled="loading">
-          {{ loading ? '登录中...' : '登 录' }}
-        </button>
+        <UiButton variant="primary" block type="submit" :loading="loading" :disabled="loading">登录</UiButton>
       </form>
-    </div>
+    </section>
   </div>
 </template>

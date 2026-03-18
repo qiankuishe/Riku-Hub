@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import type { SubInfo, SubFormat } from '../../../api';
+import UiButton from '../../../components/ui/UiButton.vue';
+import UiSectionCard from '../../../components/ui/UiSectionCard.vue';
+import UiStatTile from '../../../components/ui/UiStatTile.vue';
 import { formatDateTime } from '../../../utils/date';
 
 defineProps<{
@@ -16,7 +19,7 @@ const emit = defineEmits<{
   refresh: [];
 }>();
 
-function shortenUrl(url: string, maxLength = 54) {
+function shortenUrl(url: string, maxLength = 56) {
   if (url.length <= maxLength) {
     return url;
   }
@@ -25,38 +28,21 @@ function shortenUrl(url: string, maxLength = 54) {
 </script>
 
 <template>
-  <section class="panel compact-panel">
-    <div class="section-head">
-      <div>
-        <h2>订阅链接</h2>
+  <UiSectionCard class="compact-panel" title="订阅链接" subtitle="聚合结果和格式输出">
+    <div class="section-head-actions">
+      <div class="status-pill" :data-status="subInfo?.cacheStatus || 'missing'">
+        {{ cacheStatusText }}
       </div>
-      <div class="section-head-actions">
-        <div class="status-pill" :data-status="subInfo?.cacheStatus || 'missing'">
-          {{ cacheStatusText }}
-        </div>
-        <button class="ghost small" :disabled="refreshing" @click="emit('refresh')">
-          {{ refreshing ? '刷新中...' : '刷新缓存' }}
-        </button>
-      </div>
+      <UiButton variant="tertiary" size="sm" :disabled="refreshing" @click="emit('refresh')">
+        {{ refreshing ? '刷新中...' : '刷新缓存' }}
+      </UiButton>
     </div>
 
     <div class="meta-grid">
-      <div class="metric-card">
-        <span>总节点数</span>
-        <strong>{{ subInfo?.totalNodes ?? 0 }}</strong>
-      </div>
-      <div class="metric-card">
-        <span>最近刷新</span>
-        <strong>{{ formatDateTime(subInfo?.lastRefreshTime, '尚未刷新') }}</strong>
-      </div>
-      <div class="metric-card">
-        <span>Warning</span>
-        <strong>{{ subInfo?.warningCount ?? 0 }}</strong>
-      </div>
-      <div class="metric-card">
-        <span>最近保存</span>
-        <strong>{{ formatDateTime(lastSaveTime, '尚未保存') }}</strong>
-      </div>
+      <UiStatTile label="总节点数" :value="subInfo?.totalNodes ?? 0" />
+      <UiStatTile label="最近刷新" :value="formatDateTime(subInfo?.lastRefreshTime, '尚未刷新')" />
+      <UiStatTile label="警告数" :value="subInfo?.warningCount ?? 0" />
+      <UiStatTile label="最近保存" :value="formatDateTime(lastSaveTime, '尚未保存')" />
     </div>
 
     <p v-if="subInfo?.lastRefreshError" class="error-banner">
@@ -70,10 +56,10 @@ function shortenUrl(url: string, maxLength = 54) {
           <p :title="format.url">{{ shortenUrl(format.url) }}</p>
         </div>
         <div class="link-actions">
-          <button class="ghost small" @click="emit('copy', format.url)">复制</button>
-          <button class="ghost small" @click="emit('qr', format.name, format.url)">二维码</button>
+          <UiButton variant="tertiary" size="sm" @click="emit('copy', format.url)">复制</UiButton>
+          <UiButton variant="tertiary" size="sm" @click="emit('qr', format.name, format.url)">二维码</UiButton>
         </div>
       </article>
     </div>
-  </section>
+  </UiSectionCard>
 </template>

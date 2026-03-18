@@ -10,7 +10,7 @@ export interface SecondaryNavItem {
 }
 
 export const useUiStore = defineStore('ui', () => {
-  const darkMode = ref(localStorage.getItem('darkMode') === 'true');
+  const darkMode = ref(false);
   const toastMessage = ref('');
   const mobileNavOpen = ref(false);
   const secondaryNavTitle = ref('');
@@ -20,12 +20,12 @@ export const useUiStore = defineStore('ui', () => {
   let toastTimer: number | undefined;
 
   function applyTheme() {
-    document.documentElement.classList.toggle('dark', darkMode.value);
+    document.documentElement.classList.remove('dark');
   }
 
   function toggleDarkMode() {
-    darkMode.value = !darkMode.value;
-    localStorage.setItem('darkMode', String(darkMode.value));
+    darkMode.value = false;
+    localStorage.removeItem('darkMode');
     applyTheme();
   }
 

@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { authApi, settingsApi, type SettingsBackupPayload, type SettingsExportStats } from '../../api';
+import UiButton from '../../components/ui/UiButton.vue';
+import UiDialog from '../../components/ui/UiDialog.vue';
+import UiSectionCard from '../../components/ui/UiSectionCard.vue';
+import UiStatTile from '../../components/ui/UiStatTile.vue';
 import { useUiStore } from '../../stores/ui';
 
 type DangerScope = 'sources' | 'navigation' | 'notes' | 'snippets' | 'all';
@@ -47,7 +51,7 @@ const dangerActions: DangerActionConfig[] = [
   },
   {
     scope: 'snippets',
-    title: '清空片段库',
+    title: '清空片段',
     description: '删除文本、代码、链接和图片数据。',
     buttonLabel: '清空'
   },
@@ -83,7 +87,7 @@ async function refreshStats() {
     const data = await settingsApi.getExportStats();
     stats.value = data.stats;
   } catch (error) {
-    uiStore.showToast(error instanceof Error ? error.message : '读取数据统计失败');
+    uiStore.showToast(error instanceof Error ? error.message : '读取统计失败');
   } finally {
     loadingStats.value = false;
   }
@@ -103,7 +107,7 @@ async function exportBackup() {
     link.click();
     link.remove();
     window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-    uiStore.showToast('备份已导出');
+    uiStore.showToast('导出完成');
   } catch (error) {
     uiStore.showToast(error instanceof Error ? error.message : '导出失败');
   } finally {
@@ -123,7 +127,7 @@ async function handleImport(event: Event) {
     const text = await file.text();
     const backup = JSON.parse(text) as unknown;
     if (!backup || typeof backup !== 'object') {
-      throw new Error('备份文件内容无效');
+      throw new Error('备份文件无效');
     }
 
     const data = await settingsApi.importData(backup as SettingsBackupPayload);
@@ -154,7 +158,7 @@ async function runDangerAction() {
   runningDangerAction.value = action.scope;
   try {
     await settingsApi.clearData(action.scope);
-    uiStore.showToast(`${action.title}已完成`);
+    uiStore.showToast(`${action.title}完成`);
     closeDangerConfirm();
     await refreshStats();
   } catch (error) {
@@ -166,142 +170,81 @@ async function runDangerAction() {
 
 async function logout() {
   await authApi.logout().catch(() => undefined);
-  uiStore.showToast('已退出登录');
+  uiStore.showToast('已退出');
   window.location.replace('/login');
 }
 </script>
 
 <template>
   <div class="page-shell page-shell-compact">
-    <section class="panel compact-panel settings-panel">
-      <!-- Header -->
-      <div class="section-head" style="margin-bottom: 20px;">
+    <UiSectionCard class="compact-panel settings-panel">
+      <div class="section-head">
         <div>
           <h2>系统设置</h2>
-          <p>{{ currentOrigin }}</p>
-        </div>
-        <div class="section-head-actions">
-          <button class="ghost small" @click="uiStore.toggleDarkMode">
-            {{ uiStore.darkMode ? '☀️ 浅色' : '🌙 深色' }}
-          </button>
+          <p class="section-subtitle">{{ currentOrigin }}</p>
         </div>
       </div>
 
       <div class="settings-stack">
-        <!-- Data -->
-        <article :id="dataSectionId" class="settings-section-card">
-          <div class="settings-section-head">
-            <div>
-              <h3>数据管理</h3>
-            </div>
-          </div>
-
-          <!-- Stats -->
+        <UiSectionCard :id="dataSectionId" title="数据管理" subtitle="备份、恢复与统计">
           <div class="settings-stat-grid">
-            <div class="settings-stat-tile">
-              <strong>{{ stats?.sources ?? (loadingStats ? '…' : 0) }}</strong>
-              <span>订阅源</span>
-            </div>
-            <div class="settings-stat-tile">
-              <strong>{{ stats?.navigationCategories ?? (loadingStats ? '…' : 0) }}</strong>
-              <span>导航分类</span>
-            </div>
-            <div class="settings-stat-tile">
-              <strong>{{ stats?.navigationLinks ?? (loadingStats ? '…' : 0) }}</strong>
-              <span>导航链接</span>
-            </div>
-            <div class="settings-stat-tile">
-              <strong>{{ stats?.notes ?? (loadingStats ? '…' : 0) }}</strong>
-              <span>笔记</span>
-            </div>
-            <div class="settings-stat-tile">
-              <strong>{{ stats?.snippets ?? (loadingStats ? '…' : 0) }}</strong>
-              <span>片段</span>
-            </div>
+            <UiStatTile label="订阅源" :value="stats?.sources ?? (loadingStats ? '...' : 0)" />
+            <UiStatTile label="导航分类" :value="stats?.navigationCategories ?? (loadingStats ? '...' : 0)" />
+            <UiStatTile label="导航链接" :value="stats?.navigationLinks ?? (loadingStats ? '...' : 0)" />
+            <UiStatTile label="笔记" :value="stats?.notes ?? (loadingStats ? '...' : 0)" />
+            <UiStatTile label="片段" :value="stats?.snippets ?? (loadingStats ? '...' : 0)" />
           </div>
 
-          <!-- Actions -->
           <div class="settings-action-grid">
-            <button class="primary" :disabled="exporting" @click="exportBackup">
-              {{ exporting ? '导出中...' : '导出备份' }}
-            </button>
-
+            <UiButton variant="primary" :loading="exporting" :disabled="exporting" @click="exportBackup">导出</UiButton>
             <label class="ghost settings-upload-button" :class="{ disabled: importing }">
               <input type="file" accept=".json,application/json" :disabled="importing" @change="handleImport" />
-              {{ importing ? '导入中...' : '导入备份' }}
+              {{ importing ? '导入中...' : '导入' }}
             </label>
-
-            <button class="ghost" :disabled="loadingStats" @click="refreshStats">
-              {{ loadingStats ? '刷新中...' : '刷新统计' }}
-            </button>
+            <UiButton variant="tertiary" :disabled="loadingStats" @click="refreshStats">
+              {{ loadingStats ? '刷新中...' : '刷新' }}
+            </UiButton>
           </div>
-        </article>
+        </UiSectionCard>
 
-        <!-- Danger zone -->
-        <article :id="dangerSectionId" class="settings-section-card settings-danger-section">
-          <div class="settings-section-head">
-            <div>
-              <h3>危险区域</h3>
-              <p>以下操作不可撤销，建议先导出备份。</p>
-            </div>
-          </div>
-
+        <UiSectionCard :id="dangerSectionId" title="危险区域" subtitle="高风险操作需要二次确认">
           <div class="settings-danger-grid">
             <div v-for="action in dangerActions" :key="action.scope" class="settings-danger-row">
               <div class="settings-danger-copy">
                 <strong>{{ action.title }}</strong>
                 <p>{{ action.description }}</p>
               </div>
-
-              <button
-                class="ghost small danger"
-                :disabled="runningDangerAction === action.scope"
-                @click="openDangerConfirm(action)"
-              >
+              <UiButton variant="danger" size="sm" :disabled="runningDangerAction === action.scope" @click="openDangerConfirm(action)">
                 {{ runningDangerAction === action.scope ? '处理中...' : action.buttonLabel }}
-              </button>
+              </UiButton>
             </div>
           </div>
-        </article>
+        </UiSectionCard>
 
-        <!-- Account -->
-        <article :id="accountSectionId" class="settings-section-card">
-          <div class="settings-section-head">
-            <div><h3>账户</h3></div>
-          </div>
-
+        <UiSectionCard :id="accountSectionId" title="账户" subtitle="当前实例和登录状态">
           <div class="settings-account-stack">
             <div class="setting-card settings-account-card">
               <span>当前域名</span>
               <strong>{{ currentOrigin }}</strong>
             </div>
-
             <div class="settings-account-actions">
-              <button class="ghost danger" @click="logout">退出登录</button>
+              <UiButton variant="danger" @click="logout">退出</UiButton>
             </div>
           </div>
-        </article>
+        </UiSectionCard>
       </div>
-    </section>
+    </UiSectionCard>
 
-    <!-- Danger confirm dialog -->
-    <div v-if="confirmTarget" class="modal-backdrop" @click.self="closeDangerConfirm">
-      <div class="modal-card compact-modal-card panel">
-        <div class="section-head">
-          <div>
-            <h2>{{ confirmTarget.title }}</h2>
-          </div>
-        </div>
-
-        <p class="confirm-text">{{ confirmTarget.description }}此操作不可撤销，确认继续？</p>
-
-        <div class="dialog-actions">
-          <button class="ghost" :disabled="Boolean(runningDangerAction)" @click="closeDangerConfirm">取消</button>
-          <button class="primary danger-fill" :disabled="Boolean(runningDangerAction)" @click="runDangerAction">
-            {{ runningDangerAction ? '处理中...' : '确认' }}
-          </button>
-        </div>
-      </div>
-    </div>
+    <UiDialog
+      :open="Boolean(confirmTarget)"
+      tone="danger"
+      :title="confirmTarget?.title ?? '确认操作'"
+      :description="`${confirmTarget?.description ?? ''}此操作不可撤销，确认继续？`"
+      confirm-text="确认"
+      :confirm-loading="Boolean(runningDangerAction)"
+      :confirm-disabled="Boolean(runningDangerAction)"
+      @close="closeDangerConfirm"
+      @confirm="runDangerAction"
+    />
   </div>
 </template>

@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
-import FaviconImage from '../../components/FaviconImage.vue';
 import type { NavigationCategory, NavigationLink } from '../../api';
+import FaviconImage from '../../components/FaviconImage.vue';
+import UiButton from '../../components/ui/UiButton.vue';
+import UiDialog from '../../components/ui/UiDialog.vue';
+import UiEmptyState from '../../components/ui/UiEmptyState.vue';
+import UiField from '../../components/ui/UiField.vue';
+import UiSectionCard from '../../components/ui/UiSectionCard.vue';
 import { useNavigationStore } from '../../stores/navigation';
 import { useUiStore } from '../../stores/ui';
 import { formatDateTime } from '../../utils/date';
@@ -123,7 +128,7 @@ async function saveCategory() {
     }
     categoryDialogVisible.value = false;
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '保存分类失败';
+    errorMessage.value = error instanceof Error ? error.message : '保存失败';
   }
 }
 
@@ -152,19 +157,12 @@ function normalizeNavigationUrl(value: string) {
   return `https://${trimmed}`;
 }
 
-function formatNavigationTitle(value: string) {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return '未命名站点';
+function getLinkHost(url: string) {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
   }
-
-  const hasCjk = /[\u3400-\u9fff]/.test(trimmed);
-  const maxLength = hasCjk ? 9 : 16;
-  if (trimmed.length <= maxLength) {
-    return trimmed;
-  }
-
-  return `${trimmed.slice(0, Math.max(0, maxLength - 1))}···`;
 }
 
 function formatRecentVisitedAt(value: string | undefined) {
@@ -189,7 +187,7 @@ function formatRecentVisitedAt(value: string | undefined) {
 
 async function saveLink() {
   if (!linkForm.value.categoryId || !linkForm.value.title.trim() || !linkForm.value.url.trim()) {
-    errorMessage.value = '分类、标题和链接都不能为空';
+    errorMessage.value = '分类、名称和链接不能为空';
     return;
   }
 
@@ -218,7 +216,7 @@ async function saveLink() {
     await nextTick();
     focusCategory(linkForm.value.categoryId);
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '保存站点失败';
+    errorMessage.value = error instanceof Error ? error.message : '保存失败';
   }
 }
 
@@ -263,7 +261,7 @@ async function confirmDeleteCategory() {
     deleteCategoryTarget.value = null;
     uiStore.showToast('分类已删除');
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '删除分类失败';
+    errorMessage.value = error instanceof Error ? error.message : '删除失败';
   }
 }
 
@@ -276,7 +274,7 @@ async function confirmDeleteLink() {
     deleteLinkTarget.value = null;
     uiStore.showToast('站点已删除');
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '删除站点失败';
+    errorMessage.value = error instanceof Error ? error.message : '删除失败';
   }
 }
 
@@ -310,227 +308,200 @@ async function openLink(link: NavigationLink) {
 
 <template>
   <div :id="overviewSectionId" class="page-shell page-shell-wide">
-    <div class="nav-main-column">
+    <UiSectionCard class="nav-toolbar-card">
       <div class="section-head nav-page-actions">
-        <div />
+        <div>
+          <h2>网站导航</h2>
+          <p class="section-subtitle">统一管理分组、链接和访问记录。</p>
+        </div>
         <div class="section-head-actions">
-          <button v-if="isEditMode || !hasCategories" class="ghost" @click="openCategoryDialog()">
+          <UiButton v-if="isEditMode || !hasCategories" variant="secondary" @click="openCategoryDialog()">
             新增分类
-          </button>
-          <button v-if="isEditMode && hasCategories" class="primary" @click="openLinkDialog()">
+          </UiButton>
+          <UiButton v-if="isEditMode && hasCategories" variant="primary" @click="openLinkDialog()">
             新增站点
-          </button>
-          <button class="ghost" @click="isEditMode = !isEditMode">
-            {{ isEditMode ? '退出编辑' : '进入编辑' }}
-          </button>
+          </UiButton>
+          <UiButton variant="tertiary" @click="isEditMode = !isEditMode">
+            {{ isEditMode ? '完成编辑' : '进入编辑' }}
+          </UiButton>
         </div>
       </div>
+    </UiSectionCard>
 
-      <section v-if="recentLinks.length" class="panel">
-        <div class="section-head">
-          <div>
-            <h2>最近访问</h2>
-          </div>
-        </div>
-
-        <div class="nav-recent-grid">
-          <button v-for="link in recentLinks" :key="link.id" class="nav-recent-item" @click="openLink(link)">
+    <UiSectionCard v-if="recentLinks.length" title="最近访问" subtitle="最近打开的链接会出现在这里。">
+      <div class="nav-link-list">
+        <article v-for="link in recentLinks" :key="link.id" class="nav-link-row nav-link-row--recent" @click="openLink(link)">
+          <div class="nav-link-main">
             <FaviconImage :url="link.url" :title="link.title" class-name="nav-recent-favicon" />
-            <div>
+            <div class="nav-link-copy">
               <strong>{{ link.title }}</strong>
               <p>{{ link.categoryName }} · {{ formatRecentVisitedAt(link.lastVisitedAt ?? undefined) }}</p>
             </div>
-          </button>
-        </div>
-      </section>
-
-      <section class="nav-sections-panel">
-        <div v-if="navigationStore.loading" class="panel">
-          <div class="empty-state">正在加载导航数据...</div>
-        </div>
-
-        <div v-else-if="!hasCategories" class="panel">
-          <div class="empty-state nav-empty-state">
-            <strong>还没有导航分类</strong>
-            <p>你可以先创建一个分类，再往里面添加站点。</p>
-            <div class="dialog-actions">
-              <button class="primary" @click="openCategoryDialog()">新增分类</button>
-            </div>
           </div>
-        </div>
+          <span class="inline-status">{{ getLinkHost(link.url) }}</span>
+        </article>
+      </div>
+    </UiSectionCard>
 
-        <div v-if="!navigationStore.loading && hasCategories && !hasLinks" class="panel">
-          <div class="empty-state nav-empty-state">
-            <strong>分类还在，但站点已经清空</strong>
-            <p>现在可以直接新增站点，或者继续补新的分类。</p>
-            <div class="dialog-actions">
-              <button class="ghost" @click="openCategoryDialog()">新增分类</button>
-              <button class="primary" @click="openLinkDialog()">新增站点</button>
-            </div>
+    <section class="nav-sections-panel">
+      <UiSectionCard v-if="navigationStore.loading">
+        <UiEmptyState title="正在加载导航数据" description="请稍候片刻..." />
+      </UiSectionCard>
+
+      <UiSectionCard v-else-if="!hasCategories">
+        <UiEmptyState title="还没有导航分类" description="先创建一个分类，再添加站点。">
+          <UiButton variant="primary" @click="openCategoryDialog()">新增分类</UiButton>
+        </UiEmptyState>
+      </UiSectionCard>
+
+      <UiSectionCard v-if="!navigationStore.loading && hasCategories && !hasLinks">
+        <UiEmptyState title="分类还在，但站点为空" description="可以直接添加站点，或者继续补新的分类。">
+          <UiButton variant="secondary" @click="openCategoryDialog()">新增分类</UiButton>
+          <UiButton variant="primary" @click="openLinkDialog()">新增站点</UiButton>
+        </UiEmptyState>
+      </UiSectionCard>
+
+      <UiSectionCard
+        v-for="category in navigationStore.categories"
+        :id="getCategorySectionId(category.id)"
+        :key="category.id"
+        :title="category.name"
+        class="nav-category-panel"
+      >
+        <template v-if="isEditMode">
+          <div class="nav-link-actions nav-category-actions">
+            <UiButton variant="tertiary" size="sm" :disabled="navigationStore.saving || isFirstCategory(category)" @click="moveCategory(category, -1)">
+              上移分类
+            </UiButton>
+            <UiButton variant="tertiary" size="sm" :disabled="navigationStore.saving || isLastCategory(category)" @click="moveCategory(category, 1)">
+              下移分类
+            </UiButton>
+            <UiButton variant="tertiary" size="sm" :disabled="navigationStore.saving" @click="openCategoryDialog(category)">
+              编辑分类
+            </UiButton>
+            <UiButton variant="danger" size="sm" :disabled="navigationStore.saving" @click="deleteCategoryTarget = category">
+              删除分类
+            </UiButton>
+            <UiButton variant="primary" size="sm" @click="openLinkDialog(undefined, category.id)">
+              新增站点
+            </UiButton>
           </div>
-        </div>
+        </template>
 
-        <section
-          v-for="category in navigationStore.categories"
-          :id="getCategorySectionId(category.id)"
-          :key="category.id"
-          class="panel nav-category-panel"
-        >
-          <div class="section-head">
-            <div>
-              <h2>{{ category.name }}</h2>
-            </div>
-            <div v-if="isEditMode" class="nav-card-actions">
-              <button class="ghost small" :disabled="navigationStore.saving || isFirstCategory(category)" @click="moveCategory(category, -1)">
-                上移分类
-              </button>
-              <button class="ghost small" :disabled="navigationStore.saving || isLastCategory(category)" @click="moveCategory(category, 1)">
-                下移分类
-              </button>
-              <button class="ghost small" :disabled="navigationStore.saving" @click="openCategoryDialog(category)">编辑分类</button>
-              <button class="ghost danger small" :disabled="navigationStore.saving" @click="deleteCategoryTarget = category">删除分类</button>
-              <button class="primary" @click="openLinkDialog(undefined, category.id)">新增站点</button>
-            </div>
-          </div>
+        <UiEmptyState
+          v-if="category.links.length === 0"
+          title="当前分类还没有站点"
+          description="添加一个站点后会显示在这里。"
+        />
 
-          <div v-if="category.links.length === 0" class="empty-state">当前分类还没有站点。</div>
-          <div v-else class="nav-card-grid nav-card-grid-compact">
-            <article
-              v-for="link in category.links"
-              :key="link.id"
-              class="nav-card nav-card-clickable"
-              @click="!isEditMode && openLink(link)"
-            >
-              <div class="nav-card-head">
-                <div class="nav-card-title">
-                  <FaviconImage :url="link.url" :title="link.title" class-name="favicon-image" />
-                  <div>
-                    <h3 :title="link.title">{{ formatNavigationTitle(link.title) }}</h3>
-                  </div>
-                </div>
+        <div v-else class="nav-link-list">
+          <article
+            v-for="link in category.links"
+            :key="link.id"
+            class="nav-link-row"
+            :class="{ 'nav-link-row--interactive': !isEditMode }"
+          >
+            <div class="nav-link-main" @click="!isEditMode && openLink(link)">
+              <FaviconImage :url="link.url" :title="link.title" class-name="nav-recent-favicon" />
+              <div class="nav-link-copy">
+                <strong>{{ link.title }}</strong>
+                <p>{{ link.description || '暂无备注' }}</p>
+                <small>{{ getLinkHost(link.url) }} · {{ formatDateTime(link.lastVisitedAt ?? undefined, '尚未访问') }}</small>
               </div>
+            </div>
 
-              <div v-if="!isEditMode" class="nav-card-hover">
-                <div class="nav-card-hover-meta">
-                  <span>{{ link.visitCount || 0 }} 次访问</span>
-                  <span>{{ formatDateTime(link.lastVisitedAt ?? undefined, '尚未访问') }}</span>
-                </div>
-                <p>{{ link.description || '暂无说明' }}</p>
-              </div>
-
-              <div v-if="isEditMode" class="nav-card-actions">
-                <button class="ghost small" :disabled="navigationStore.saving || isFirstLink(link)" @click.stop="moveLink(link, -1)">上移</button>
-                <button class="ghost small" :disabled="navigationStore.saving || isLastLink(link)" @click.stop="moveLink(link, 1)">下移</button>
-                <button class="ghost small" :disabled="navigationStore.saving" @click.stop="openLinkDialog(link)">编辑</button>
-                <button class="ghost danger small" :disabled="navigationStore.saving" @click.stop="deleteLinkTarget = link">删除</button>
-              </div>
-            </article>
-          </div>
-        </section>
-      </section>
-    </div>
-
-    <div v-if="categoryDialogVisible" class="modal-backdrop" @click.self="categoryDialogVisible = false">
-      <div class="modal-card compact-modal-card">
-        <div class="section-head">
-          <div>
-            <h2>{{ editingCategory ? '编辑分类' : '新增分类' }}</h2>
-          </div>
+            <div class="nav-link-actions">
+              <UiButton v-if="!isEditMode" variant="tertiary" size="sm" @click.stop="openLink(link)">打开</UiButton>
+              <template v-else>
+                <UiButton variant="tertiary" size="sm" :disabled="navigationStore.saving || isFirstLink(link)" @click.stop="moveLink(link, -1)">
+                  上移
+                </UiButton>
+                <UiButton variant="tertiary" size="sm" :disabled="navigationStore.saving || isLastLink(link)" @click.stop="moveLink(link, 1)">
+                  下移
+                </UiButton>
+                <UiButton variant="tertiary" size="sm" :disabled="navigationStore.saving" @click.stop="openLinkDialog(link)">
+                  编辑
+                </UiButton>
+                <UiButton variant="danger" size="sm" :disabled="navigationStore.saving" @click.stop="deleteLinkTarget = link">
+                  删除
+                </UiButton>
+              </template>
+            </div>
+          </article>
         </div>
+      </UiSectionCard>
+    </section>
 
-        <label class="field">
-          <span>分类名称</span>
-          <input v-model="categoryFormName" placeholder="例如：开发工具" />
-        </label>
+    <UiDialog
+      :open="categoryDialogVisible"
+      :title="editingCategory ? '编辑分类' : '新增分类'"
+      confirm-text="保存"
+      :confirm-loading="navigationStore.saving"
+      :confirm-disabled="navigationStore.saving"
+      @close="categoryDialogVisible = false"
+      @confirm="saveCategory"
+    >
+      <UiField label="分类名称">
+        <input v-model="categoryFormName" placeholder="例如：开发工具" @keydown.enter="saveCategory" />
+      </UiField>
+      <p v-if="errorMessage" class="error-banner">{{ errorMessage }}</p>
+    </UiDialog>
 
-        <p v-if="errorMessage" class="error-banner">{{ errorMessage }}</p>
+    <UiDialog
+      :open="linkDialogVisible"
+      :title="editingLink ? '编辑站点' : '新增站点'"
+      confirm-text="保存"
+      :confirm-loading="navigationStore.saving"
+      :confirm-disabled="navigationStore.saving"
+      @close="linkDialogVisible = false"
+      @confirm="saveLink"
+    >
+      <div class="editor-form">
+        <UiField label="所属分类">
+          <select v-model="linkForm.categoryId" class="field-select">
+            <option v-for="category in navigationStore.categories" :key="category.id" :value="category.id">
+              {{ category.name }}
+            </option>
+          </select>
+        </UiField>
 
-        <div class="dialog-actions">
-          <button class="ghost" @click="categoryDialogVisible = false">取消</button>
-          <button class="primary" :disabled="navigationStore.saving" @click="saveCategory">
-            {{ navigationStore.saving ? '保存中...' : '保存' }}
-          </button>
-        </div>
+        <UiField label="站点名称">
+          <input v-model="linkForm.title" placeholder="例如：Cloudflare" />
+        </UiField>
+
+        <UiField label="站点链接">
+          <input v-model="linkForm.url" placeholder="example.com 或 https://example.com" />
+        </UiField>
+
+        <UiField label="备注">
+          <textarea v-model="linkForm.description" rows="4" placeholder="补充一句便于识别的说明"></textarea>
+        </UiField>
       </div>
-    </div>
+      <p v-if="errorMessage" class="error-banner">{{ errorMessage }}</p>
+    </UiDialog>
 
-    <div v-if="linkDialogVisible" class="modal-backdrop" @click.self="linkDialogVisible = false">
-      <div class="modal-card">
-        <div class="section-head">
-          <div>
-            <h2>{{ editingLink ? '编辑站点' : '新增站点' }}</h2>
-          </div>
-        </div>
+    <UiDialog
+      :open="Boolean(deleteCategoryTarget)"
+      tone="danger"
+      title="确认删除分类"
+      :description="`确定删除「${deleteCategoryTarget?.name ?? ''}」吗？`"
+      confirm-text="删除"
+      :confirm-loading="navigationStore.saving"
+      :confirm-disabled="navigationStore.saving"
+      @close="deleteCategoryTarget = null"
+      @confirm="confirmDeleteCategory"
+    />
 
-        <div class="editor-form">
-          <label class="field">
-            <span>所属分类</span>
-            <select v-model="linkForm.categoryId" class="field-select">
-              <option v-for="category in navigationStore.categories" :key="category.id" :value="category.id">
-                {{ category.name }}
-              </option>
-            </select>
-          </label>
-
-          <label class="field">
-            <span>站点名称</span>
-            <input v-model="linkForm.title" placeholder="例如：Cloudflare" />
-          </label>
-
-          <label class="field">
-            <span>站点链接</span>
-            <input v-model="linkForm.url" placeholder="example.com 或 https://example.com" />
-          </label>
-
-          <label class="field">
-            <span>说明</span>
-            <textarea v-model="linkForm.description" rows="4" placeholder="补充一句你自己看得懂的说明"></textarea>
-          </label>
-        </div>
-
-        <p v-if="errorMessage" class="error-banner">{{ errorMessage }}</p>
-
-        <div class="dialog-actions">
-          <button class="ghost" @click="linkDialogVisible = false">取消</button>
-          <button class="primary" :disabled="navigationStore.saving" @click="saveLink">
-            {{ navigationStore.saving ? '保存中...' : '保存' }}
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <div v-if="deleteCategoryTarget" class="modal-backdrop" @click.self="deleteCategoryTarget = null">
-      <div class="modal-card confirm-card">
-        <div class="section-head">
-          <div>
-            <h2>确认删除分类</h2>
-          </div>
-        </div>
-        <p class="confirm-text">确定删除「{{ deleteCategoryTarget.name }}」吗？</p>
-        <div class="dialog-actions">
-          <button class="ghost" @click="deleteCategoryTarget = null">取消</button>
-          <button class="primary danger-fill" :disabled="navigationStore.saving" @click="confirmDeleteCategory">
-            {{ navigationStore.saving ? '删除中...' : '删除' }}
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <div v-if="deleteLinkTarget" class="modal-backdrop" @click.self="deleteLinkTarget = null">
-      <div class="modal-card confirm-card">
-        <div class="section-head">
-          <div>
-            <h2>确认删除站点</h2>
-          </div>
-        </div>
-        <p class="confirm-text">确定删除「{{ deleteLinkTarget.title }}」吗？</p>
-        <div class="dialog-actions">
-          <button class="ghost" @click="deleteLinkTarget = null">取消</button>
-          <button class="primary danger-fill" :disabled="navigationStore.saving" @click="confirmDeleteLink">
-            {{ navigationStore.saving ? '删除中...' : '删除' }}
-          </button>
-        </div>
-      </div>
-    </div>
+    <UiDialog
+      :open="Boolean(deleteLinkTarget)"
+      tone="danger"
+      title="确认删除站点"
+      :description="`确定删除「${deleteLinkTarget?.title ?? ''}」吗？`"
+      confirm-text="删除"
+      :confirm-loading="navigationStore.saving"
+      :confirm-disabled="navigationStore.saving"
+      @close="deleteLinkTarget = null"
+      @confirm="confirmDeleteLink"
+    />
   </div>
 </template>

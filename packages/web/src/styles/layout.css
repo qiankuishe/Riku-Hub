@@ -1,0 +1,135 @@
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: stretch;
+}
+
+.main-sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: var(--shell-sidebar-width);
+  border-right: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(10px);
+  box-shadow: none;
+  border-radius: 0;
+  padding: 20px 16px 16px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 0;
+  z-index: 40;
+}
+
+.app-shell-main {
+  margin-left: var(--shell-sidebar-width);
+  width: calc(100% - var(--shell-sidebar-width));
+  min-width: 0;
+}
+
+.app-shell-main-inner {
+  width: 100%;
+  max-width: var(--shell-main-max);
+  margin: 0 auto;
+  min-height: 100vh;
+  padding: 20px 28px 32px;
+}
+
+.topbar {
+  margin-bottom: 20px;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.topbar-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.topbar-title h1 {
+  font-size: 24px;
+  line-height: 30px;
+}
+
+.page-content,
+.page-shell,
+.page-shell-wide {
+  width: 100%;
+  min-width: 0;
+}
+
+.page-shell {
+  display: grid;
+  gap: 20px;
+}
+
+.page-shell-compact {
+  justify-items: center;
+}
+
+.page-shell-wide {
+  gap: 20px;
+}
+
+.desktop-only {
+  display: block;
+}
+
+.mobile-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  justify-items: end;
+  background: rgba(0, 0, 0, 0.24);
+}
+
+.mobile-drawer {
+  width: min(320px, 100%);
+  height: 100%;
+  padding: 18px 16px;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 14px;
+  border-radius: 0;
+}
+
+.mobile-drawer-head {
+  justify-content: space-between;
+  gap: 10px;
+}
+
+@media (max-width: 980px) {
+  .app-shell {
+    display: block;
+  }
+
+  .desktop-only {
+    display: none;
+  }
+
+  .app-shell-main {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .app-shell-main-inner {
+    max-width: 100%;
+    padding: 14px;
+  }
+
+  .topbar {
+    align-items: flex-start;
+  }
+
+  .topbar-title h1 {
+    font-size: 22px;
+    line-height: 28px;
+  }
+
+  .menu-button {
+    display: inline-flex;
+  }
+}
