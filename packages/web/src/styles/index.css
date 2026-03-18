@@ -721,7 +721,7 @@ p {
 }
 
 .settings-panel {
-  width: 100%;
+  width: min(100%, 680px);
   min-width: 0;
 }
 
