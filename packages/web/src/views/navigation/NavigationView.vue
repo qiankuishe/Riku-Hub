@@ -277,6 +277,26 @@ function formatNavigationTitle(value: string) {
   return `${trimmed.slice(0, Math.max(0, maxLength - 1))}···`;
 }
 
+function formatRecentVisitedAt(value: string | undefined) {
+  if (!value) {
+    return '刚刚';
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).format(date);
+}
+
 async function saveLink() {
   if (!linkForm.value.categoryId || !linkForm.value.title.trim() || !linkForm.value.url.trim()) {
     errorMessage.value = '分类、标题和链接都不能为空';
@@ -540,7 +560,7 @@ async function openSearchResult(result: SearchResult) {
             <FaviconImage :url="link.url" :title="link.title" class-name="nav-recent-favicon" />
             <div>
               <strong>{{ link.title }}</strong>
-              <p>{{ link.categoryName }} · {{ formatDateTime(link.lastVisitedAt ?? undefined, '刚刚') }}</p>
+              <p>{{ link.categoryName }} · {{ formatRecentVisitedAt(link.lastVisitedAt ?? undefined) }}</p>
             </div>
           </button>
         </div>
