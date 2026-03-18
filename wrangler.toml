@@ -11,5 +11,12 @@ binding = "ASSETS"
 AGGREGATE_TTL_SECONDS = "3600"
 MAX_LOG_ENTRIES = "200"
 
+[[kv_namespaces]]
+binding = "CACHE_KV"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "riku-hub-db"
+
 [triggers]
 crons = ["0 * * * *"]
